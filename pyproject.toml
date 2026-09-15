@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "quantdesk"
+version = "0.1.0"
+description = "Derivatives pricing, execution, and pre-trade risk, built from scratch and defensible line by line."
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "numba>=0.59",
+    "pandas>=2.0",
+    "psycopg[binary]>=3.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/quantdesk"]
+
+[tool.pytest.ini_options]
+# src layout without requiring an editable install
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "slow: benchmark-scale test, excluded from the fast suite via -m 'not slow'",
+]

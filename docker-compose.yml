@@ -1,0 +1,36 @@
+# PostgreSQL for M8 (5-minute bars), M10 (batched rejection logs) and
+# M11 (order state machine and reconciliation).
+#
+# Note for M10: the database is deliberately *not* on the pre-trade critical
+# path. Rejection logs arrive here after the fact, COPY'd in blocks of ten
+# thousand. Any pre-trade check that queried this container would put a network
+# round trip inside the latency budget and make a sub-millisecond p99
+# impossible.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: quantdesk-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-quantdesk}
+      POSTGRES_USER: ${POSTGRES_USER:-quantdesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-quantdesk}
+      # Deterministic ordering and timestamps regardless of host locale.
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # DDL in sql/ is applied on first boot of an empty volume.
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quantdesk} -d ${POSTGRES_DB:-quantdesk}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:

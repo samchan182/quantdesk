@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.env
+.DS_Store
+
+# results/ is deliberately NOT ignored. Every number in REPORT.md links to a
+# committed result JSON; that link is the whole provenance chain.
