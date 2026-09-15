@@ -1,0 +1,32 @@
+{
+  "benchmark": "determinism_selftest",
+  "environment": {
+    "cpu_model": "Apple M2",
+    "git_branch": "main",
+    "git_commit": "aedba75c9c4ec0d4015131886220947bcb764414",
+    "git_dirty": false,
+    "machine": "arm64",
+    "packages": {
+      "numba": "0.61.0",
+      "numpy": "2.1.3",
+      "pandas": "2.2.3",
+      "scipy": "1.15.3"
+    },
+    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+    "python_implementation": "CPython",
+    "python_version": "3.13.5"
+  },
+  "inputs": {
+    "generator": "PCG64 via numpy.random.default_rng",
+    "n_draws": 1000000
+  },
+  "notes": null,
+  "schema_version": 1,
+  "seed": 20260915,
+  "timestamp_utc": "2026-09-15T08:54:00.115599+00:00",
+  "values": {
+    "sample_mean": -7.758286482383237e-06,
+    "sample_std": 1.0001137637963355,
+    "standard_error_of_mean": 0.0010001137637963356
+  }
+}
