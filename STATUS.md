@@ -3,12 +3,12 @@
 Milestone checklist. The agent maintains this file; §7 of `CLAUDE.md` says each
 session starts by reading it and resuming from the first incomplete milestone.
 
-**Current position: M0 complete. Next: M1 — closed-form Black–Scholes.**
+**Current position: M1 complete. Next: M2 — GBM path engine.**
 
 | # | Milestone | State | Headline |
 |---|---|---|---|
 | M0 | Scaffold and determinism harness | **done** | — |
-| M1 | Closed-form Black–Scholes | not started | — |
+| M1 | Closed-form Black–Scholes | **done** | — |
 | M2 | GBM path engine | not started | — |
 | M3 | Variance reduction study | not started | #1 |
 | M4 | Structured products | not started | — |
@@ -59,6 +59,71 @@ a hand-written placeholder in a file whose contract says "generated, never
 edited by hand" is the wrong thing to have in the repository. `DEFENSE.md` does
 exist, because M2 requires a design decision to be written into it before any
 headline number is produced.
+
+---
+
+## M1 — done
+
+**Built.** `src/quantdesk/analytics/blackscholes.py`: European call and put
+price, delta, vega and gamma under a continuous dividend yield `q`. Vectorised
+over any broadcastable inputs, returning a float when every input is scalar. No
+dependency on anything else in the package — this is the reference the rest of
+the repository is measured against, so it is written to be obviously correct
+rather than fast.
+
+**Acceptance — all three met, on a 2,880-point grid** (5 spots × 3 strikes ×
+4 rates including a negative one × 3 dividend yields × 4 vols × 4 maturities
+from one day to five years).
+
+| check | required | measured |
+|---|---|---|
+| put-call parity | machine precision | **2.0 ulp** (2.84e-14 absolute, 2.88e-16 relative to term size) |
+| delta vs central difference | 1e-6 | **5.37e-08** absolute, calls and puts |
+| vega vs central difference | 1e-6 | **2.81e-08** absolute, per 1.00 of vol |
+| σ → 0 | discounted intrinsic | exact, bit-for-bit |
+| T → 0 | intrinsic | exact, bit-for-bit |
+
+Parity is measured relative to the size of the *terms*, not of their
+difference. The two terms can nearly cancel — at S=90, K=100, r=2%, T=5 they
+are both ≈90 and differ by −0.48 — and scaling by that residual would report
+the conditioning of the subtraction rather than the accuracy of the formula.
+
+**Four things the grid exposed that are worth having answers to.**
+
+1. *Vega is not zero at σ = 0.* Away from the money it vanishes, but exactly at
+   the money forward `d1 → 0` and vega tends to `S·e^(-qT)·φ(0)·√T`. Handled
+   explicitly and tested; the easy version of this function returns zero
+   everywhere and is wrong at one point.
+2. *Vega and gamma underflow to exactly zero* at 180 of the 2,880 points — deep
+   out-of-the-money one-day options where `d1 ≈ −149`, so the true value is
+   around 1e-4836 against a smallest representable double of 5e-324. Zero is
+   the correct answer to return, and no floor is applied. It also means a
+   *relative* error on a Greek is meaningless once the Greek has underflowed,
+   which M6 will have to respect.
+3. *Monotonicity in vol fails at two points, by 1.4e-14.* Both are one-day
+   options 20+ points in the money where vega is ~1e-13, so a 1% vol bump moves
+   the true price by ~3e-16 — below the representable granularity of a double
+   near 20. Asserted to within ulps there, strictly everywhere it is
+   resolvable.
+4. *The finite-difference bump-size sweep is U-shaped, as M6 will need.*
+   Gamma via a difference of analytic delta: 2.13e-6, 2.12e-8, **5.29e-10**,
+   7.73e-9 at h = 1e-5, 1e-6, 1e-7, 1e-8 × S — truncation falling as h², then
+   cancellation taking over. Establishing the shape here, where the true answer
+   is known exactly and there is no Monte Carlo noise, is the cheap way to know
+   the M6 sweep measures what it claims to.
+
+**Emits.** Nothing to `REPORT.md`, per the spec. This is infrastructure.
+
+**One external anchor.** Every other check is internal consistency — parity,
+finite differences, monotonicity — and all of them would still pass if the
+module were wrong by a common factor. So one test pins absolute values for
+S=K=100, r=5%, q=0, σ=20%, T=1, computed independently at 50 decimal digits
+with mpmath using `erf` rather than SciPy's `ndtr`, and agreeing to 1e-15
+relative: call 10.450583572185566782, put 5.5735260222569676908, delta
+0.63683065117561907122, vega 37.524034691693787837, gamma
+0.018762017345846893919. mpmath is **not** a dependency; it was used once at
+the terminal to generate the constants, and the command is in the test
+docstring.
 
 ---
 
