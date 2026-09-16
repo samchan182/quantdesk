@@ -24,6 +24,7 @@ __all__ = ["Market", "BASE_MARKET", "SEEDS", "seed_for"]
 # sensitivity work, but its headline run uses the registered value.
 SEEDS: Final[dict[str, int]] = {
     "determinism_selftest": 20260915,
+    "variance_reduction": 31415926,
 }
 
 

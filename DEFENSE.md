@@ -251,3 +251,93 @@ measured at **0.82 standard errors** on two million paths. A companion test
 shows this has teeth: drop the `−σ²/2` Itô correction and the simulated mean is
 high by `exp(σ²T/2)`, 2% here, which the same test rejects. That error is
 invisible in an option price, where it would hide inside the noise.
+
+---
+
+## H1 — Variance reduction: 49.62% in standard error, 74.62% in variance
+
+**What the number means, and in what units of what base.** Arm A is crude Monte
+Carlo on 200,000 paths; arm D is antithetic pairing plus a control variate on
+the same 200,000 paths. Arm D's standard error is 0.008602 against arm A's
+0.017075 — a **49.62% reduction in standard error**, which is the same fact as a
+**74.62% reduction in variance**. Both are quoted because "a 62% reduction"
+alone does not say which, and the two differ by more than twenty points. The
+base is the standard error of the Monte Carlo estimate of the price of one
+specific product: an arithmetic-average Asian call struck at 100, one year,
+averaged over 252 daily closes, at 20% vol and a 2% rate. It is not a statement
+about the repository's Monte Carlo in general.
+
+**The mechanism, in plain language.** Two independent effects compose.
+Antithetic sampling evaluates the payoff at `+Z` and `-Z` and averages the pair;
+because the Asian payoff is monotone in the driving noise, the two legs are
+negatively correlated and their average is less variable than two independent
+draws would be. The control variate exploits something different — that a
+European call on the *same* paths has a price known exactly in closed form. Its
+Monte Carlo error is observable, so subtracting `β` times that observed error
+from the Asian estimate removes the component of the Asian's error that moves
+with it. What is left is the part of the Asian's variation the European cannot
+explain, which is `1 − ρ²` of the original variance.
+
+**What it is most sensitive to: the correlation.** Everything about the control
+variate's contribution is `ρ = 0.833`. Push it to 0.95 and the remaining
+variance would be 10% rather than 31%; drop it to 0.5 and most of the benefit
+goes. The correlation is a property of the pairing of *this* target with *this*
+control, so the headline does not transfer to a different product.
+
+**What would make it wrong, and how you would know.**
+
+- *Computing the standard error over 2N paths instead of N pairs.* This would
+  inflate the apparent antithetic benefit. The accumulator counts pairs and
+  reports `n_samples` and `n_paths` separately; the linear-payoff test in M2
+  would fail loudly if the denominator were wrong.
+- *Hardcoding β = 1.* Measured β is **0.4618**. Since `Var(X − bY)` is a
+  parabola in `b` with its minimum at `β*` and its value back at `Var(X)` when
+  `b = 2β*`, and `2 × 0.4618 = 0.92 < 1`, β = 1 would make the variance
+  **worse than no control variate at all**. A test evaluates the parabola at
+  `2β*` and confirms it returns to `Var(X)`.
+- *Estimating β in-sample.* Fitting β to the same draws it is applied to
+  correlates the coefficient with the residual it multiplies and leaves an
+  O(1/N) bias. β is therefore estimated on an independent 20,000-path pilot on
+  its own seed. A test measures the in-sample bias directly and shows it
+  shrinking with N.
+- *A wrong control expectation.* `E[Y]` comes from M1's closed form. If it were
+  wrong, the control variate would bias the estimate rather than merely fail to
+  help — and the arms would no longer agree. That is what acceptance check 1
+  tests.
+
+**The honest limitations.**
+
+1. *This is one product, at one set of parameters.* The percentage is not a
+   property of the technique in the abstract.
+2. *Arms A and C share draws, as do B and D.* That is deliberate — it isolates
+   the control variate's effect from sampling noise — but it means the A-to-C
+   comparison is paired, not independent. The two simulations use different
+   seeds.
+3. *The product choice was mine, not the author's.* An arithmetic Asian is a
+   reasonable target for a European control, but it is not a product anyone
+   asked for.
+4. *A single control variate caps out at `1 − ρ²`.* Getting materially past
+   this would need a better-correlated control — a geometric Asian, which also
+   has a closed form and would correlate far more tightly — rather than more
+   paths.
+
+---
+
+## H1b — Why the arms share a path count rather than a runtime
+
+**The decision.** All four arms simulate exactly 200,000 paths. The comparison
+is at equal path count, not at equal wall-clock time.
+
+**Why.** Equal-path-count is the honest framing for a *statistical* claim: it
+answers "for the same simulation work, how much less noisy is the answer". The
+control variate's extra cost is one payoff evaluation per path on paths already
+generated, which is negligible against generating them; antithetic pairing
+costs a second payoff evaluation on the negated draws, likewise. So at this
+product the two framings nearly coincide.
+
+**Where the distinction bites, and it is flagged now because M6 turns on it.**
+M6 compares pathwise Greeks against bump-and-revalue, and there the two methods
+have genuinely different costs per unit of accuracy. That comparison must be
+made at **matched standard error on the Greek**, not at matched path count, and
+the report has to say which convention was used. The same care is not needed
+here, but the convention is still stated rather than assumed.

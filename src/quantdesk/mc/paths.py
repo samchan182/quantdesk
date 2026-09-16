@@ -39,22 +39,30 @@ total path count.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Callable, Literal
 
 import numpy as np
 
 from quantdesk.config import Market
-from quantdesk.mc.estimators import Accumulator, antithetic_average
+from quantdesk.mc.estimators import (
+    Accumulator,
+    PairedAccumulator,
+    antithetic_average,
+    control_variate_samples,
+)
 from quantdesk.rng import spawn
 
 __all__ = [
     "Engine",
     "DEFAULT_CHUNK_PATHS",
     "NUMBA_AVAILABLE",
+    "PairedRun",
     "terminal_prices",
     "price_paths",
     "chunk_sizes",
     "simulate",
+    "simulate_paired",
 ]
 
 Engine = Literal["numpy", "numba"]
@@ -258,3 +266,109 @@ def simulate(
             acc.update(payoff(prices(z)), paths_used=size)
 
     return acc
+
+
+@dataclass
+class PairedRun:
+    """One simulation carrying a target payoff and its control side by side.
+
+    `joint` holds the marginal moments of both and their covariance — enough
+    for the realised correlation, and so for the `1 - rho^2` prediction. When a
+    `beta` is supplied, `controlled` additionally accumulates
+    `X - beta*(Y - E[Y])`, so the uncontrolled and controlled arms come out of
+    the same draws and differ only by the control adjustment rather than by
+    sampling noise.
+    """
+
+    joint: PairedAccumulator
+    controlled: Accumulator | None
+    beta: float | None
+    expected_control: float | None
+    antithetic: bool
+
+    @property
+    def uncontrolled_estimate(self) -> float:
+        return self.joint.mean_x
+
+    @property
+    def uncontrolled_standard_error(self) -> float:
+        return self.joint.standard_error_x
+
+
+def simulate_paired(
+    *,
+    seed: int,
+    market: Market,
+    maturity: float,
+    n_paths: int,
+    target: Callable[[np.ndarray], np.ndarray],
+    control: Callable[[np.ndarray], np.ndarray],
+    expected_control: float | None = None,
+    beta: float | None = None,
+    n_steps: int | None = None,
+    chunk_paths: int = DEFAULT_CHUNK_PATHS,
+    antithetic: bool = False,
+    engine: Engine = "numpy",
+) -> PairedRun:
+    """Simulate a target payoff and a control payoff on the same paths.
+
+    The control's exact expectation must be known — here it comes from M1's
+    closed form — which is what lets `Y - E[Y]` be subtracted without biasing
+    the estimate.
+
+    Under `antithetic=True` **both** legs are pair-averaged before anything
+    else happens, and the control variate is then applied to the pair averages.
+    That ordering matters: the optimal beta for pair averages is not the
+    optimal beta for individual paths, because pairing changes the joint
+    distribution of the two payoffs. The caller must supply a beta estimated
+    under the same pairing convention, and `bench/variance_reduction.py` runs a
+    separate pilot for each arm precisely for this reason.
+    """
+    _validate(market, maturity)
+    if n_paths < 1:
+        raise ValueError(f"n_paths must be >= 1, got {n_paths}")
+    if antithetic and n_paths % 2 != 0:
+        raise ValueError(f"antithetic requires an even n_paths, got {n_paths}")
+    if (beta is None) != (expected_control is None):
+        raise ValueError("beta and expected_control must be supplied together, or neither")
+
+    n_units = n_paths // 2 if antithetic else n_paths
+    chunk_units = max(1, chunk_paths // 2 if antithetic else chunk_paths)
+    sizes = chunk_sizes(n_units, chunk_units)
+    generators = spawn(seed, len(sizes))
+
+    def prices(draws: np.ndarray) -> np.ndarray:
+        if n_steps is None:
+            return terminal_prices(draws, market, maturity)
+        return price_paths(draws, market, maturity, engine=engine)
+
+    joint = PairedAccumulator()
+    controlled = Accumulator() if beta is not None else None
+
+    for size, generator in zip(sizes, generators, strict=True):
+        shape = (size,) if n_steps is None else (size, n_steps)
+        z = generator.standard_normal(shape)
+
+        if antithetic:
+            plus, minus = prices(z), prices(-z)
+            x = antithetic_average(target(plus), target(minus))
+            y = antithetic_average(control(plus), control(minus))
+            paths_used = 2 * size
+        else:
+            simulated = prices(z)
+            x, y = target(simulated), control(simulated)
+            paths_used = size
+
+        joint.update(x, y, paths_used=paths_used)
+        if controlled is not None:
+            controlled.update(
+                control_variate_samples(x, y, expected_control, beta), paths_used=paths_used
+            )
+
+    return PairedRun(
+        joint=joint,
+        controlled=controlled,
+        beta=beta,
+        expected_control=expected_control,
+        antithetic=antithetic,
+    )

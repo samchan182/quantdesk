@@ -28,7 +28,13 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-__all__ = ["Accumulator", "antithetic_average", "relative_standard_error"]
+__all__ = [
+    "Accumulator",
+    "PairedAccumulator",
+    "antithetic_average",
+    "relative_standard_error",
+    "control_variate_samples",
+]
 
 
 @dataclass
@@ -129,3 +135,121 @@ def relative_standard_error(acc: Accumulator) -> float:
     if acc.mean == 0.0:
         return float("nan")
     return acc.standard_error / abs(acc.mean)
+
+
+@dataclass
+class PairedAccumulator:
+    """Running moments of two jointly-sampled quantities, plus their co-moment.
+
+    Needed for the control variate, which requires Cov(X, Y) and hence a
+    covariance that survives chunking. Extends Chan's update to the cross term::
+
+        C = C_a + C_b + (mean_x_b - mean_x_a) * (mean_y_b - mean_y_a) * n_a * n_b / n
+
+    and is stable for the same reason the variance update is: it never forms
+    ``E[XY] - E[X]E[Y]``, which cancels catastrophically when the means are
+    large relative to the spread.
+    """
+
+    n_samples: int = 0
+    mean_x: float = 0.0
+    mean_y: float = 0.0
+    m2_x: float = 0.0
+    m2_y: float = 0.0
+    c_xy: float = 0.0
+    n_paths: int = 0
+    chunk_sizes: list[int] = field(default_factory=list)
+
+    def update(
+        self, x: np.ndarray, y: np.ndarray, *, paths_used: int | None = None
+    ) -> "PairedAccumulator":
+        x = np.asarray(x, dtype=np.float64).ravel()
+        y = np.asarray(y, dtype=np.float64).ravel()
+        if x.shape != y.shape:
+            raise ValueError(f"paired samples must match in shape, got {x.shape} vs {y.shape}")
+        n_b = x.size
+        if n_b == 0:
+            return self
+        if not (np.all(np.isfinite(x)) and np.all(np.isfinite(y))):
+            raise ValueError("non-finite sample in paired accumulator update")
+
+        mx_b, my_b = float(x.mean()), float(y.mean())
+        dx, dy = x - mx_b, y - my_b
+        m2x_b, m2y_b = float(np.sum(dx * dx)), float(np.sum(dy * dy))
+        cxy_b = float(np.sum(dx * dy))
+
+        if self.n_samples == 0:
+            self.n_samples, self.mean_x, self.mean_y = n_b, mx_b, my_b
+            self.m2_x, self.m2_y, self.c_xy = m2x_b, m2y_b, cxy_b
+        else:
+            n_a = self.n_samples
+            n = n_a + n_b
+            delta_x, delta_y = mx_b - self.mean_x, my_b - self.mean_y
+            weight = n_a * n_b / n
+            self.m2_x += m2x_b + delta_x * delta_x * weight
+            self.m2_y += m2y_b + delta_y * delta_y * weight
+            self.c_xy += cxy_b + delta_x * delta_y * weight
+            self.mean_x += delta_x * (n_b / n)
+            self.mean_y += delta_y * (n_b / n)
+            self.n_samples = n
+
+        self.n_paths += n_b if paths_used is None else paths_used
+        self.chunk_sizes.append(n_b)
+        return self
+
+    @property
+    def var_x(self) -> float:
+        return self.m2_x / (self.n_samples - 1) if self.n_samples > 1 else float("nan")
+
+    @property
+    def var_y(self) -> float:
+        return self.m2_y / (self.n_samples - 1) if self.n_samples > 1 else float("nan")
+
+    @property
+    def covariance(self) -> float:
+        return self.c_xy / (self.n_samples - 1) if self.n_samples > 1 else float("nan")
+
+    @property
+    def correlation(self) -> float:
+        denom = np.sqrt(self.var_x * self.var_y)
+        return float(self.covariance / denom) if denom > 0 else float("nan")
+
+    @property
+    def beta_star(self) -> float:
+        """Cov(X, Y) / Var(Y) — the variance-minimising control coefficient.
+
+        Emphatically not 1. Beta is 1 only when X and Y move one-for-one; using
+        1 otherwise weakens the reduction, and if the true beta is below 0.5 it
+        makes the variance *worse* than no control variate at all.
+        """
+        return float(self.covariance / self.var_y) if self.var_y > 0 else float("nan")
+
+    @property
+    def standard_error_x(self) -> float:
+        if self.n_samples < 2:
+            return float("nan")
+        return float(np.sqrt(self.var_x / self.n_samples))
+
+    @property
+    def theoretical_variance_ratio(self) -> float:
+        """1 − ρ², the best a single control variate can do."""
+        rho = self.correlation
+        return float(1.0 - rho * rho)
+
+
+def control_variate_samples(
+    target: np.ndarray, control: np.ndarray, expected_control: float, beta: float
+) -> np.ndarray:
+    """``X - beta * (Y - E[Y])``, one controlled sample per input sample.
+
+    Unbiased for any fixed ``beta``, because ``E[Y - E[Y]] = 0`` — the control
+    variate shifts variance around without moving the mean. That is only true
+    while ``beta`` is fixed independently of this sample; a ``beta`` fitted to
+    the same draws introduces an O(1/N) bias, which is why it is estimated on a
+    separate pilot.
+    """
+    target = np.asarray(target, dtype=np.float64)
+    control = np.asarray(control, dtype=np.float64)
+    if target.shape != control.shape:
+        raise ValueError(f"shapes must match, got {target.shape} vs {control.shape}")
+    return target - beta * (control - expected_control)

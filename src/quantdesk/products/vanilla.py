@@ -14,7 +14,12 @@ import numpy as np
 
 from quantdesk.analytics.blackscholes import OptionKind
 
-__all__ = ["european_payoff", "on_terminal_column", "linear_in_z_payoff"]
+__all__ = [
+    "european_payoff",
+    "arithmetic_asian_payoff",
+    "on_terminal_column",
+    "linear_in_z_payoff",
+]
 
 
 def european_payoff(
@@ -38,6 +43,45 @@ def european_payoff(
         return discount * np.maximum(intrinsic, 0.0)
 
     payoff.__doc__ = f"Discounted European {kind}, K={strike}, T={maturity}"
+    return payoff
+
+
+def arithmetic_asian_payoff(
+    strike: float,
+    rate: float,
+    maturity: float,
+    kind: OptionKind = "call",
+) -> Callable[[np.ndarray], np.ndarray]:
+    """Discounted arithmetic-average Asian payoff, as a function of full paths.
+
+    The average runs over the simulated observation columns and **excludes
+    column 0**, which is the spot and is known at inception. Averaging a known
+    constant into the observation set would damp the payoff's variance for a
+    reason that has nothing to do with the contract, and would make the
+    variance-reduction study flatter than it should be.
+
+    There is no closed form for the arithmetic average of lognormals, which is
+    exactly why this is the target of M3's study: the European call on the same
+    paths *does* have one, so it can serve as a control whose expectation is
+    known exactly.
+    """
+    if strike <= 0:
+        raise ValueError(f"strike must be positive, got {strike}")
+    if kind not in ("call", "put"):
+        raise ValueError(f"kind must be 'call' or 'put', got {kind!r}")
+    discount = float(np.exp(-rate * maturity))
+
+    def payoff(paths: np.ndarray) -> np.ndarray:
+        paths = np.asarray(paths, dtype=np.float64)
+        if paths.ndim != 2:
+            raise ValueError(f"expected paths of shape (n, steps+1), got {paths.shape}")
+        if paths.shape[1] < 2:
+            raise ValueError("an Asian payoff needs at least one observation after inception")
+        average = paths[:, 1:].mean(axis=1)
+        intrinsic = average - strike if kind == "call" else strike - average
+        return discount * np.maximum(intrinsic, 0.0)
+
+    payoff.__doc__ = f"Discounted arithmetic Asian {kind}, K={strike}, T={maturity}"
     return payoff
 
 
