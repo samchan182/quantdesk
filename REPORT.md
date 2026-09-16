@@ -54,12 +54,11 @@ python bench/variance_reduction.py
 ```
 
 - **Seed**: `31415926` (registered in `config.SEEDS`)
-- **Commit**: `18523990eacd73155ed611fe5fb2558088d4ad48` (branch `main`)  
-  **Working tree was dirty at run time** — this number is reproducible only from that tree, not from the commit alone.
+- **Commit**: `62433972197571352bbe6e3c5054a3435d7626a0` (branch `main`)
 - **Python**: 3.13.5 (CPython)
 - **Libraries**: numba 0.61.0, numpy 2.1.3, pandas 2.2.3, scipy 1.15.3
 - **Machine**: Apple M2, arm64, macOS-26.5-arm64-arm-64bit-Mach-O
-- **Result JSON**: [`results/variance_reduction__20260916T051605_541860Z.json`](results/variance_reduction__20260916T051605_541860Z.json)
-- **Run at**: 2026-09-16T05:16:05.541860+00:00
+- **Result JSON**: [`results/variance_reduction__20260916T052320_970782Z.json`](results/variance_reduction__20260916T052320_970782Z.json)
+- **Run at**: 2026-09-16T05:23:20.970782+00:00
 
 > Arms A and C share one simulation; B and D share another, so each control-variate comparison differs only by the control adjustment and not by sampling noise. Beta is estimated on independent pilot runs, one per pairing convention.

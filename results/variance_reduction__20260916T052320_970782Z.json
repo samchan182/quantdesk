@@ -1,0 +1,90 @@
+{
+  "benchmark": "variance_reduction",
+  "environment": {
+    "cpu_model": "Apple M2",
+    "git_branch": "main",
+    "git_commit": "62433972197571352bbe6e3c5054a3435d7626a0",
+    "git_dirty": false,
+    "machine": "arm64",
+    "packages": {
+      "numba": "0.61.0",
+      "numpy": "2.1.3",
+      "pandas": "2.2.3",
+      "scipy": "1.15.3"
+    },
+    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+    "python_implementation": "CPython",
+    "python_version": "3.13.5"
+  },
+  "inputs": {
+    "chunk_paths": 10000,
+    "control": "European call on the same paths, same strike and maturity",
+    "market": {
+      "div_yield": 0.0,
+      "rate": 0.02,
+      "spot": 100.0,
+      "vol": 0.2
+    },
+    "maturity": 1.0,
+    "n_steps": 252,
+    "pilot_paths": 20000,
+    "pilot_samples_antithetic": 10000,
+    "pilot_samples_plain": 20000,
+    "pilot_seed_antithetic": 38415928,
+    "pilot_seed_plain": 38415927,
+    "product": "arithmetic average Asian call, average over daily closes after inception",
+    "seed_antithetic_arms": 31415927,
+    "seed_plain_arms": 31415926,
+    "strike": 100.0,
+    "total_paths_per_arm": 200000
+  },
+  "notes": "Arms A and C share one simulation; B and D share another, so each control-variate comparison differs only by the control adjustment and not by sampling noise. Beta is estimated on independent pilot runs, one per pairing convention.",
+  "schema_version": 1,
+  "seed": 31415926,
+  "timestamp_utc": "2026-09-16T05:23:20.970782+00:00",
+  "values": {
+    "antithetic_variance_ratio_B_over_A": 0.5612728877998189,
+    "arms": {
+      "A_crude": {
+        "estimate": 5.081984574920971,
+        "n_paths": 200000,
+        "n_samples": 200000,
+        "standard_error": 0.017074754611959408
+      },
+      "B_antithetic": {
+        "estimate": 5.079034259321442,
+        "n_paths": 200000,
+        "n_samples": 100000,
+        "standard_error": 0.012792089906037175
+      },
+      "C_control_variate": {
+        "estimate": 5.073682436089532,
+        "n_paths": 200000,
+        "n_samples": 200000,
+        "standard_error": 0.009448495752205195
+      },
+      "D_antithetic_plus_cv": {
+        "estimate": 5.077593790339475,
+        "n_paths": 200000,
+        "n_samples": 100000,
+        "standard_error": 0.008602208407662447
+      }
+    },
+    "control_variate": {
+      "beta_antithetic": 0.3974359017870475,
+      "beta_plain": 0.46181056647474206,
+      "expected_control_closed_form": 8.916037278572539,
+      "main_sample_correlation_antithetic": 0.7401634100986534,
+      "main_sample_correlation_plain": 0.8329527807387989,
+      "pilot_correlation_antithetic": 0.7351063351025661,
+      "pilot_correlation_plain": 0.8303733094795508,
+      "realised_variance_ratio_antithetic": 0.45220661812488305,
+      "realised_variance_ratio_plain": 0.3062079079549763,
+      "theoretical_variance_ratio_antithetic": 0.4521581263511326,
+      "theoretical_variance_ratio_plain": 0.3061896650595025
+    },
+    "headline_se_reduction_pct_A_to_D": 49.620310199729985,
+    "headline_variance_reduction_pct_A_to_D": 74.6188685562857,
+    "speedup_equivalent_paths": 3.9399346802864943
+  }
+}
