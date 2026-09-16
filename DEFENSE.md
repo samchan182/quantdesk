@@ -144,3 +144,110 @@ correct response is to assert monotonicity to within ulps there and strictly
 everywhere the effect is resolvable, not to claim an exactness float64 does not
 have.
 
+
+---
+
+## D2.1 — Why 200,000 × 252 paths is never allocated
+
+**The decision.** `simulate` runs in chunks of 10,000 paths, reducing each chunk
+to one payoff per path and discarding the paths before drawing the next chunk.
+Peak path memory is about 20 MB regardless of the total path count.
+
+**The arithmetic.** 200,000 paths × 252 steps × 8 bytes is 403 MB in a single
+allocation, and under antithetic sampling two such arrays are alive at once.
+Nothing needs them: every product here consumes a per-path statistic — a
+terminal price, a running minimum, prices on observation dates, a payoff — and
+those are what the chunk loop keeps.
+
+**The consequence that has to be recorded.** Each chunk draws from its own
+generator, derived through `SeedSequence.spawn` rather than from sequential
+seeds, which are a known route to correlated streams. Because the children
+depend on how many were requested, **the chunk count changes the numbers**. Run
+the same seed with 20 chunks and with 1 and the estimates differ — by less than
+their joint standard error, as a test asserts, but they differ. Chunk size is
+therefore a recorded benchmark input, not a free tuning knob, and the result
+JSON carries it.
+
+**Honest limitation.** This is memory discipline, not a distributed system.
+Everything runs in one process on one machine, and the chunk loop is
+sequential. The numba kernel parallelises within a chunk across cores; nothing
+parallelises across chunks.
+
+---
+
+## D2.2 — The NumPy reference is permanent, and the kernels agree bit-for-bit
+
+**The decision.** The NumPy path generator is not scaffolding that the numba
+kernel replaces. It stays, and it is what the kernel is tested against.
+
+**The result.** The two agree **bit-for-bit** on 2,000 × 252 paths, not merely
+to 1e-12. That was designed for: the NumPy version puts the log-spot in column 0
+and the increments in columns 1..m before a single `cumsum`, so its accumulation
+order is `((log S₀ + inc₀) + inc₁) + …`, exactly the kernel's sequential loop.
+Adding `log S₀` to a cumsum of the increments would associate differently and
+lose it. The kernel is compiled `fastmath=False`; with fastmath on, LLVM may
+reassociate and contract to FMA, and the agreement goes.
+
+**Why it is worth the trouble.** An exact reference turns "the kernel is wrong"
+into a one-line assertion. Without it, a discrepancy between a compiled kernel
+and a closed-form price has at least three candidate causes — the kernel, the
+estimator, the payoff — and no way to separate them.
+
+**Honest limitation.** Bit-for-bit is a claim about this machine, this NumPy,
+this LLVM. It is asserted with a documented 1e-12 relative fallback precisely
+because a different platform's `exp` may differ in the last ulp.
+
+---
+
+## D2.3 — The antithetic sample is the pair, and the standard error says so
+
+**What the number means.** Under antithetic sampling the estimator's sample
+size is the number of **pairs**, N, not the number of paths, 2N. The
+accumulator tracks `n_samples` and `n_paths` separately and divides by
+`n_samples`.
+
+**The mechanism.** `Y_i = (f(Z_i) + f(−Z_i))/2` is one draw from the
+distribution of the pair average. The two paths inside it are negatively
+correlated by construction — that is the entire point of the technique — so
+treating them as 2N independent observations understates the estimator's
+variance and inflates the apparent benefit.
+
+**How it is verified, and why this test rather than another.**
+`log(S_T/S₀) = μT + σ√T·Z` is affine in `Z`, so every pair average is exactly
+`μT` and the variance across pairs is exactly zero. A correct standard error is
+zero to floating-point noise: measured **2.21e-19**. A standard error pooled
+over the 2N individual paths instead reports the full spread of the draws,
+above 5e-4 — six thousand times larger. The failure is not a few percent of
+overstated benefit that could hide in noise; it is visible at a glance. Run at
+r=5%, q=1%, σ=20% so that μT = 0.02 is genuinely non-zero; at `BASE_MARKET`,
+`r − q − σ²/2` happens to be exactly zero and the test would have pinned
+nothing down.
+
+**What would make it wrong.** Antithetic sampling helps only when the payoff is
+monotone in the driving normal, so that `f(Z)` and `f(−Z)` are negatively
+correlated. For a symmetric payoff — a straddle struck at the forward — the
+correlation is near zero and the technique buys almost nothing; for some
+non-monotone payoffs it can increase variance. M3 measures the benefit rather
+than assuming it.
+
+---
+
+## D2.4 — A European priced in one step has no discretisation error
+
+**The decision.** GBM has a closed-form transition density, so `S_T` is
+simulated in a single exact draw rather than by stepping. Stepped simulation
+exists for path-dependent products, and a test prices the same European both
+ways and requires agreement within the joint standard error.
+
+**Why it matters for M5.** M5 measures the gap between Monte Carlo and closed
+form and has to attribute it. Under GBM with a European payoff there is no
+discretisation error to attribute it to — each step is exact in law, whether
+you take one or 252 — so the entire gap must be sampling noise. If the measured
+difference exceeds two standard errors, the engine has a real bias and the
+right response is to find it, not to report the agreement.
+
+**The cheapest check that the drift is right.** `E[S_T] = S₀e^((r−q)T)`,
+measured at **0.82 standard errors** on two million paths. A companion test
+shows this has teeth: drop the `−σ²/2` Itô correction and the simulated mean is
+high by `exp(σ²T/2)`, 2% here, which the same test rejects. That error is
+invisible in an option price, where it would hide inside the noise.

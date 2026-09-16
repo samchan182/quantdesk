@@ -3,13 +3,13 @@
 Milestone checklist. The agent maintains this file; §7 of `CLAUDE.md` says each
 session starts by reading it and resuming from the first incomplete milestone.
 
-**Current position: M1 complete. Next: M2 — GBM path engine.**
+**Current position: M2 complete. Next: M3 — variance reduction study, headline #1.**
 
 | # | Milestone | State | Headline |
 |---|---|---|---|
 | M0 | Scaffold and determinism harness | **done** | — |
 | M1 | Closed-form Black–Scholes | **done** | — |
-| M2 | GBM path engine | not started | — |
+| M2 | GBM path engine | **done** | — |
 | M3 | Variance reduction study | not started | #1 |
 | M4 | Structured products | not started | — |
 | M5 | MC vs closed form | not started | #2 |
@@ -124,6 +124,70 @@ relative: call 10.450583572185566782, put 5.5735260222569676908, delta
 0.018762017345846893919. mpmath is **not** a dependency; it was used once at
 the terminal to generate the constants, and the command is in the test
 docstring.
+
+---
+
+## M2 — done
+
+**Built.** `mc/paths.py` — terminal-only and stepped GBM, NumPy reference and
+numba kernel, plus the chunked driver. `mc/estimators.py` — the accumulator,
+antithetic pairing, standard errors. `products/vanilla.py` — European payoffs
+and the linear-in-Z probe payoff.
+
+**Acceptance — all four met.**
+
+| check | required | measured |
+|---|---|---|
+| numba kernel vs NumPy reference | bit-for-bit, or 1e-12 | **bit-for-bit identical** |
+| simulated E[S_T] vs `S₀e^((r−q)T)` | within 2 standard errors | **0.82 se** (102.032141 vs 102.020134) |
+| convergence to closed form | log-log slope near −0.5 | **−0.531** |
+| antithetic on a linear payoff | standard error zero | **2.21e-19** (sample std 4.94e-17) |
+
+Convergence RMS errors were 1.164e-01, 3.775e-02, 1.011e-02 at N = 10⁴, 10⁵,
+10⁶, against a closed-form price of 8.9160372786.
+
+**Bit-for-bit agreement was designed for, not lucky.** The NumPy reference
+places the log-spot in column 0 and the increments in columns 1..m before a
+single `cumsum`, so its accumulation order is `((log S₀ + inc₀) + inc₁) + …` —
+exactly the sequential loop in the kernel. Adding `log S₀` to a cumsum of the
+increments instead associates the additions differently and would have cost the
+agreement. The kernel is compiled with `fastmath=False`; enabling it would let
+LLVM reassociate and contract to FMA, and the agreement would go.
+
+**The convergence slope is measured on RMS error over 24 seeds per N**, not on
+a single run. One run's error at one N is itself a random variable with enough
+spread that a slope fitted through three of them lands anywhere between −0.2
+and −0.9 by luck. That is a real methodological point, not a detail: the claim
+being made is about the estimator's rate, so the measurement has to average
+over the estimator's randomness.
+
+**The linear-payoff antithetic test, and why that market.** `log(S_T/S₀)` is
+affine in `Z`, so every pair average equals `μT` exactly and the variance
+across pairs is exactly zero. Run at r=5%, q=1%, σ=20%, so μT = 0.02 — pointedly
+**not** `BASE_MARKET`, where `r − q − σ²/2 = 0.02 − 0 − 0.02` is exactly zero and
+"the mean equals μT" would collapse to "the mean is zero" and pin down nothing.
+The measured mean is 0.019999999999999997, equal to μT at zero relative error.
+A companion test computes what the wrong denominator would have reported:
+pooling over 2N paths gives a standard error above 5e-4 instead of 2e-19.
+
+**Two numerical findings worth keeping.**
+
+1. *The accumulator does not sum squares.* On 100,000 draws of unit variance
+   around a mean of 1e9, `E[X²] − (E[X])²` returns **−128.0** — a negative
+   variance, because the two terms agree to ~18 significant figures and a
+   double carries 16. Chan's parallel update reproduces NumPy's two-pass
+   variance to the last digit. A deep in-the-money option has exactly that
+   shape: a large mean with a small spread.
+2. *One stepped period and the one-step shortcut differ by 9 ulps.* The stepped
+   engine computes `exp(log S₀ + drift + σ√T·Z)`, the shortcut `S₀·exp(drift +
+   σ√T·Z)`; the log-then-exp round trip is not exact. Both are correct.
+
+**Throughput, stated as non-deterministic (R5).** 20,000 × 252 paths: NumPy
+80.3 ms, numba 7.5 ms, a 10.6× speedup — wall-clock, best of 5, Apple M2, JIT
+warmed beforehand and compilation excluded. This is not a headline number and
+is not in any result JSON as a reproducible quantity.
+
+**Emits.** Nothing to `REPORT.md`. Still infrastructure.
 
 ---
 
