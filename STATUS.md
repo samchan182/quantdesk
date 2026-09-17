@@ -3,7 +3,7 @@
 Milestone checklist. The agent maintains this file; §7 of `CLAUDE.md` says each
 session starts by reading it and resuming from the first incomplete milestone.
 
-**Current position: M3 complete — headline #1 exists. Next: M4 — structured products (blocked on contract terms; see Open questions).**
+**Current position: M4 complete. Next: M5 — Monte Carlo validated against closed form, headline #2.**
 
 | # | Milestone | State | Headline |
 |---|---|---|---|
@@ -11,7 +11,7 @@ session starts by reading it and resuming from the first incomplete milestone.
 | M1 | Closed-form Black–Scholes | **done** | — |
 | M2 | GBM path engine | **done** | — |
 | M3 | Variance reduction study | **done** | **#1** |
-| M4 | Structured products | not started | — |
+| M4 | Structured products | **done** | — |
 | M5 | MC vs closed form | not started | #2 |
 | M6 | Greeks: pathwise vs bump | not started | #3 |
 | M7 | Discrete monitoring / Brownian bridge | not started | #4 |
@@ -262,19 +262,109 @@ arithmetic price sits above it, as AM ≥ GM requires.
 
 ---
 
+## M4 — done
+
+**Built.** `products/autocallable.py` — observation schedules, autocallable
+terms and payoff. `products/snowball.py` — snowball terms and the four-branch
+payoff. Terms registered in `config.py` as `SNOWBALL_TERMS` and
+`AUTOCALLABLE_TERMS`.
+
+**The terms are NOT author-confirmed.** The author was asked and answered the
+monitoring question (daily closes) but did not select a term sheet, so the
+structure below is the one that was *recommended* to them, recorded explicitly
+rather than assumed silently. Changing it is one edit in `config.py`.
+
+| term | value |
+|---|---|
+| Tenor | 2 years, 252 steps/year (504 steps) |
+| Knock-out | 100% of initial, observed **monthly** (24 dates, last at maturity) |
+| Knock-in | 75% of initial, observed on **daily closes** (504 dates) |
+| Coupon | 15% p.a., **simple** accrual pro rata to redemption |
+| Strike | 100% of initial (recovery threshold) |
+| Downside | 100% participation, measured from the **initial level** |
+
+Simplifications, each of which makes this note worth *more* than the market
+equivalent: no three-month lock-up before the first knock-out date, no
+bid-offer, no funding spread, flat vol and flat rates.
+
+**Priced at 200,000 antithetic paths: 1.000963 per unit notional (se 0.000270).**
+Essentially par, which is the sanity check one wants — at these parameters a
+15% coupon is roughly fair compensation for the knock-in risk. The certain
+fixed-coupon note is worth 1.249026, an unreachable ceiling. The autocallable —
+the same note with the put made unconditional — is worth 0.995788, less, as it
+must be.
+
+Branch frequencies: knocked out early **88.69%**, survived with no knock-in
+**1.30%**, knocked in and below strike **10.01%**, knocked in and recovered
+**0.00%**.
+
+**The finding worth having an answer to: branch 3 is unreachable at these terms.**
+"Knocked in but recovered to at or above the strike at maturity" cannot happen
+when the knock-out level and the strike are both 100% *and* the final monthly
+knock-out observation falls on the maturity date — because a path finishing at
+or above 100% knocks out at that final observation and pays the coupon. The two
+conditions are contradictory. This is a property of the term sheet, not a
+defect: the four-branch decomposition describes the general structure, and this
+parameterisation closes one of them off. A test asserts the branch is empty
+*and* asserts the mechanism directly (final observation index equals the step
+count; knock-out level equals strike level). A second test raises the knock-out
+to 103% and shows all four branches fire, the open window being exactly the gap
+between the two levels.
+
+**If the author wants all four branches live in the priced product, set
+`knock_out_level = 1.03`.** That is the decision, stated rather than taken.
+
+**Acceptance — all four degenerate tests met, three of them exactly.**
+
+| test | expected | measured |
+|---|---|---|
+| KO at ∞, KI at 0 | fixed-coupon note `e^(−rT)(1+cT)` | **exact to 1e-14, variance < 1e-15** |
+| KO at 0, observed daily | discounted first coupon | **exact to 1e-14, variance < 1e-15** |
+| coupon 0, barriers removed | discounted forward `e^(−qT)` | within 3 se of 0.960789 |
+| monotone in coupon, in knock-in level | — | strict at every step |
+
+Three of the four collapse to a *deterministic* payoff, so the check is an
+equality with zero Monte Carlo variance rather than a confidence interval — a
+stronger statement than the spec's "within Monte Carlo noise" requires. The
+forward test is run at a **non-zero dividend yield** deliberately: at
+`BASE_MARKET`'s q = 0 the answer would be exactly 1.0, which many wrong
+implementations would also produce.
+
+**Two structural tests beyond the list.** The snowball with its knock-in level
+at infinity equals the autocallable **path for path**, not merely in price —
+the cleanest statement of what the knock-in barrier does. And the snowball
+dominates the autocallable path by path, because a conditional short put is
+worth less than an unconditional one, which is precisely why snowball coupons
+look attractive.
+
+**Knock-out takes precedence over knock-in**, tested on a hand-built path that
+dips to 50% on day one and then recovers to 120%: it pays the month-one coupon,
+not the loss.
+
+**Emits.** Nothing to `REPORT.md`. M4 has no headline.
+
+---
+
 ## Open questions for the author
 
 None blocking M1 or M2. Raised early so there is time to think; each is asked
 again at the milestone that needs it.
 
-- **M4 — contract terms.** Autocallable and snowball: knock-out level and
-  observation frequency, knock-in level and frequency, coupon rate, tenor,
-  downside participation. R7 makes these the author's call and R4 forbids
-  inventing a product, so M4 stops until they are decided.
-- **M7 — monitoring convention.** Does the contract monitor the barrier
-  continuously (intraday) or on daily closes? If daily closes and the simulation
-  steps daily, the Brownian bridge correction **must not be applied** (trap 8),
-  and M7 becomes a demonstration of that judgement rather than of the formula.
+- **M4 — contract terms, still unconfirmed.** Asked at M4; the author answered
+  the monitoring question but not this one. The recommended structure is in
+  `config.SNOWBALL_TERMS` and is flagged there as unconfirmed. Two specific
+  decisions are outstanding: (a) is a 2-year / 100% KO monthly / 75% KI daily /
+  15% p.a. snowball the product you want, and (b) do you want branch 3 to be
+  reachable, which needs the knock-out level above the strike — 103% would do
+  it. Everything downstream of M4 moves when these change.
+- **M7 — monitoring convention: ANSWERED.** The author chose daily-close
+  monitoring, plus a labelled sensitivity. The knock-in is therefore observed on
+  the same daily grid the simulation steps on, so the simulation of that barrier
+  is **exact and the Brownian bridge correction must not be applied** to the
+  contract as written (trap 8). M7 will state that judgement with both cases in
+  `DEFENSE.md`, and separately quantify what the correction *would* move the
+  price by if the contract were continuously monitored, reported as a
+  sensitivity rather than as the contract's price.
 - **M8 — data source.** `akshare` is installed; `baostock` and `tushare` are
   not. Which 20 names, and which 60 trading days?
 - **Market parameters.** `config.BASE_MARKET` is currently spot 100, r 2%, q 0,

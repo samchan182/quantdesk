@@ -341,3 +341,95 @@ have genuinely different costs per unit of accuracy. That comparison must be
 made at **matched standard error on the Greek**, not at matched path count, and
 the report has to say which convention was used. The same care is not needed
 here, but the convention is still stated rather than assumed.
+
+---
+
+## D4.1 — The snowball, in plain language
+
+**What the investor bought.** A two-year note on an index. Every month the level
+is checked: if it is at or above where it started, the note redeems early and
+pays back par plus coupon accrued at 15% a year, pro rata to that date. If it
+never redeems early, what happens at maturity depends on whether the index ever
+*closed* at or below 75% of its starting level:
+
+* it never did — par plus the full two years of coupon;
+* it did, but the index finished at or above its starting level — par, and no
+  coupon at all;
+* it did, and the index finished below — the investor takes the index's loss
+  from the starting level, one for one.
+
+**Where the coupon comes from.** The investor has sold a knock-in put. The 15%
+is not yield; it is the premium on that option, and it is large because the
+option is dangerous. Priced at these terms the note is worth **1.000963** per
+unit notional — essentially par — which says the coupon is roughly fair
+compensation, not free money.
+
+**Conventions that change the number, so they are stated.** Knock-out takes
+precedence over knock-in, so a path that knocks in and later knocks out pays the
+coupon. The coupon accrues **simple**, not compounded. The strike is a recovery
+*threshold*; redemption on the downside is at the index's performance from the
+**initial** level, not from the strike, which makes the payoff continuous at the
+strike when the two coincide. Barriers are observed on closing levels.
+
+**The honest limitations, each of which flatters the note.** No three-month
+lock-up before the first knock-out date, which real snowballs impose and which
+would lower the value. No bid-offer, no funding spread, no dividend basis risk.
+Flat volatility and flat rates — and since the dealer's risk here is
+concentrated in skew and in gamma near the knock-in, a flat-vol model is
+precisely the model least able to speak to it.
+
+---
+
+## D4.2 — Branch 3 is unreachable at these terms, and that is the term sheet's doing
+
+**The observation.** The payoff has four branches. At the recommended terms only
+three can ever fire: knocked out early 88.69%, survived with no knock-in 1.30%,
+knocked in and below strike 10.01%, knocked in and **recovered 0.00%**.
+
+**The mechanism.** Branch 3 is "knocked in, but recovered to at or above the
+strike at maturity". The knock-out level and the strike are both 100% of the
+initial fixing, and the final monthly knock-out observation falls *on* the
+maturity date. A path finishing at or above 100% therefore knocks out at that
+final observation and pays the coupon. "Recovered above the strike" and "not
+knocked out" are contradictory.
+
+**Why this is worth saying rather than hiding.** It is a property of the
+parameterisation, not a defect in the code, and the distinction is the whole
+skill being demonstrated. A test asserts the branch is empty *and* asserts the
+mechanism directly — that the last observation index equals the step count and
+that the two levels are equal — so the claim rests on the structure rather than
+on a Monte Carlo count. A second test raises the knock-out to 103% and shows all
+four branches fire, the open window being exactly the 100–103% gap.
+
+**What would make it wrong.** If branch 3 were empty for a reason other than
+this — a mis-ordered `np.select`, a wrong comparison direction — the mechanism
+assertions would still pass while the count was zero for the wrong reason. That
+is why the 103% test exists: it proves the branch is reachable code.
+
+---
+
+## D4.3 — The snowball is the autocallable with a conditional put
+
+**The relationship.** An autocallable pays an accruing coupon, redeems early on
+an up-barrier, and leaves the investor short an *unconditional* put at maturity.
+A snowball makes that put *conditional* on a lower knock-in barrier having been
+breached.
+
+**Asserted, not asserted about.** `snowball_payoff` with the knock-in level at
+infinity — always knocked in — equals `autocallable_payoff` **path for path**,
+bit for bit. And at the real terms the snowball dominates the autocallable path
+by path, pricing at 1.000963 against 0.995788.
+
+**Why it matters.** A conditional put is worth less than an unconditional one,
+so the issuer can pay a higher coupon for it. That is the entire commercial
+logic of the product, and it means the attractive coupon and the buried risk are
+the same fact viewed from two sides.
+
+**The risk a dealer carries, which §6 question 23 asks about.** Short the
+knock-in put, the dealer is long gamma nowhere useful and short vega, and the
+gamma goes unstable as spot approaches the knock-in barrier: the dealer's hedge
+ratio changes discontinuously exactly when the market is moving fastest and
+liquidity is worst. When a whole market is positioned the same way — as onshore
+China was in 2022 — every dealer needs to sell the same underlying at the same
+moment. Nothing in this repository models that crowding; it prices one note in
+isolation under flat vol, which is the honest limit of what it can say.
