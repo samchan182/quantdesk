@@ -35,6 +35,7 @@ __all__ = [
 SEEDS: Final[dict[str, int]] = {
     "determinism_selftest": 20260915,
     "variance_reduction": 31415926,
+    "closed_form_agreement": 27182818,
 }
 
 
