@@ -83,6 +83,52 @@ HEADLINES: list[Headline] = [
             Row("Pilot paths for beta", "pilot_paths", "{:,}"),
         ],
     ),
+    Headline(
+        number=2,
+        title="Monte Carlo agreement with the closed form",
+        benchmark="closed_form_agreement",
+        command="python bench/closed_form_agreement.py",
+        summary=(
+            "A European call priced through the full production stack — the same stepped "
+            "path engine, chunked driver, antithetic estimator and payoff plumbing that "
+            "price the snowball — against M1's closed form.\n\n"
+            "**Units: basis points OF THE PREMIUM, not of notional.** For an 8.92 premium "
+            "on a 100 notional those differ by a factor of eleven. The Monte Carlo standard "
+            "error is quoted in the same units beside the difference, because a difference "
+            "without its standard error cannot be read as either agreement or bias.\n\n"
+            "A European payoff under GBM has **no discretisation error** — each step of the "
+            "scheme is exact in law — so the gap can only be sampling noise. Two things "
+            "establish that rather than asserting it: the difference is pooled over "
+            "independent runs so it carries a t-statistic, and a parity decomposition on "
+            "identical paths isolates any drift bias, which would push the call and the put "
+            "in opposite directions."
+        ),
+        rows=[
+            Row("Difference from closed form", "headline.difference_bp_of_premium", "{:+.2f} bp of premium"),
+            Row("Monte Carlo standard error", "headline.standard_error_bp_of_premium", "{:.2f} bp of premium"),
+            Row("Difference, in standard errors", "headline.difference_in_standard_errors", "{:+.2f}",
+                "the acceptance threshold is two"),
+            Row("Two-sided p-value", "headline.two_sided_p_value", "{:.3f}"),
+            Row("Closed form price", "headline.closed_form", "{:.8f}"),
+            Row("Monte Carlo price", "headline.mc_estimate", "{:.8f}"),
+            Row("Total paths", "headline.total_paths", "{:,}"),
+            Row("Worst single run", "headline.worst_single_run_bp", "{:.2f} bp"),
+            Row("Parity check — drift component", "parity_decomposition.antisymmetric_drift_component.t", "t = {:+.2f}",
+                "a drift bias would appear here and nowhere else"),
+            Row("Parity check — call error", "parity_decomposition.call_error.t", "t = {:+.2f}"),
+            Row("Parity check — put error", "parity_decomposition.put_error.t", "t = {:+.2f}"),
+            Row("numba and NumPy engines bit-identical", "engines_bit_identical", "{}",
+                "re-verified in-run, so the \"same code path\" claim is tested where it is made"),
+        ],
+        input_rows=[
+            Row("Product", "product", "{}"),
+            Row("Time steps", "n_steps", "{:,}"),
+            Row("Paths per run", "paths_per_run", "{:,}"),
+            Row("Independent runs pooled", "headline_runs", "{:,}"),
+            Row("Engine", "engine", "{}"),
+            Row("Discretisation sweep", "discretisation_sweep_steps", "{}"),
+        ],
+    ),
 ]
 
 

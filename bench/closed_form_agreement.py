@@ -208,6 +208,12 @@ def parity_decomposition(seed: int, n_runs: int = 20) -> dict:
         "call_error": summarise(call_errors, call_truth),
         "put_error": summarise(put_errors, put_truth),
         "antisymmetric_drift_component": summarise(antisymmetric, call_truth),
+        # Proportional to the antisymmetric component by construction — it is
+        # that component multiplied by exp(rT) — so its t-statistic is
+        # identical *by definition*. It is reported because it restates the
+        # drift error in the units of the underlying rather than of the
+        # premium, NOT as independent corroboration. Reading the matching t as
+        # a second confirmation would be double-counting one measurement.
         "implied_mean_terminal_vs_forward": summarise(
             implied_mean_terminal - forward, forward
         ),
@@ -313,6 +319,14 @@ def main() -> int:
             f"{row['n_steps']:>7}{row['difference_bp_of_premium']:>10.2f}"
             f"{row['standard_error_bp_of_premium']:>9.2f}{row['difference_in_standard_errors']:>8.2f}"
         )
+
+    print(f"\nparity decomposition ({parity['n_runs']} paired runs, call and put on identical paths)")
+    print(f"  {'component':<36}{'bp':>9}{'t':>8}")
+    for key in ("call_error", "put_error", "antisymmetric_drift_component",
+                "implied_mean_terminal_vs_forward"):
+        row = parity[key]
+        print(f"  {key:<36}{row['bp_of_base']:>+9.3f}{row['t']:>8.4f}")
+    print("  (the last two are proportional by construction; identical t is definitional)")
 
     h = headline
     print(
