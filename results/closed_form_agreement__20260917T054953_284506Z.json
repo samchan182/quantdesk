@@ -1,0 +1,189 @@
+{
+  "benchmark": "closed_form_agreement",
+  "environment": {
+    "cpu_model": "Apple M2",
+    "git_branch": "main",
+    "git_commit": "8b621407ed6efb1b9347454ad17188dee0a38a4f",
+    "git_dirty": true,
+    "machine": "arm64",
+    "packages": {
+      "numba": "0.61.0",
+      "numpy": "2.1.3",
+      "pandas": "2.2.3",
+      "scipy": "1.15.3"
+    },
+    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+    "python_implementation": "CPython",
+    "python_version": "3.13.5"
+  },
+  "inputs": {
+    "antithetic": true,
+    "chunk_paths": 20000,
+    "discretisation_sweep_steps": [
+      1,
+      4,
+      12,
+      63,
+      252
+    ],
+    "engine": "numba",
+    "headline_runs": 40,
+    "headline_total_paths": 40000000,
+    "market": {
+      "div_yield": 0.0,
+      "rate": 0.02,
+      "spot": 100.0,
+      "vol": 0.2
+    },
+    "maturity": 1.0,
+    "n_steps": 252,
+    "paths_per_run": 1000000,
+    "product": "European option priced through the full stepped production stack",
+    "seed_headline": 27182818,
+    "supporting_runs": 40
+  },
+  "notes": "Headline pooled over independent runs so the difference has a standard error of its own and unbiasedness can be tested rather than eyeballed. Run count chosen for precision, not to reach a target value.",
+  "schema_version": 1,
+  "seed": 27182818,
+  "timestamp_utc": "2026-09-17T05:49:53.284506+00:00",
+  "values": {
+    "convention": "differences in basis points OF THE PREMIUM, not of notional; the Monte Carlo standard error is quoted in the same units",
+    "discretisation_sweep": [
+      {
+        "difference_bp_of_premium": 0.6988164577721597,
+        "difference_in_standard_errors": 0.2547890746373339,
+        "mc_estimate": 8.916660345931376,
+        "n_steps": 1,
+        "standard_error_bp_of_premium": 2.742725365154896
+      },
+      {
+        "difference_bp_of_premium": 4.305070612567556,
+        "difference_in_standard_errors": 0.7304690143740148,
+        "mc_estimate": 8.919875695579393,
+        "n_steps": 4,
+        "standard_error_bp_of_premium": 5.893570470277708
+      },
+      {
+        "difference_bp_of_premium": -4.385132621434203,
+        "difference_in_standard_errors": -0.8094094722231572,
+        "mc_estimate": 8.91212747798012,
+        "n_steps": 12,
+        "standard_error_bp_of_premium": 5.417693728478144
+      },
+      {
+        "difference_bp_of_premium": -6.128937496723741,
+        "difference_in_standard_errors": -1.5092339870539404,
+        "mc_estimate": 8.910572695052656,
+        "n_steps": 63,
+        "standard_error_bp_of_premium": 4.060959101966401
+      },
+      {
+        "difference_bp_of_premium": -6.9620795640051085,
+        "difference_in_standard_errors": -1.7586015020600565,
+        "mc_estimate": 8.909829862479633,
+        "n_steps": 252,
+        "standard_error_bp_of_premium": 3.9588727496534077
+      }
+    ],
+    "engines_bit_identical": true,
+    "headline": {
+      "case": "atm_call",
+      "closed_form": 8.916037278572539,
+      "difference": -0.0011113507428763825,
+      "difference_bp_of_premium": -1.2464626471978033,
+      "difference_in_standard_errors": -0.7114091089220634,
+      "kind": "call",
+      "mc_estimate": 8.914925927829662,
+      "n_runs": 40,
+      "paths_per_run": 1000000,
+      "standard_error": 0.0015621823349441166,
+      "standard_error_bp_of_premium": 1.7521038619908311,
+      "strike": 100.0,
+      "total_paths": 40000000,
+      "two_sided_p_value": 0.4810644730105068,
+      "worst_single_run_bp": 27.401670322326023
+    },
+    "multiple_comparisons_note": "4 cases are tested, so a two-sided p below 0.05 in one of them is expected about 19% of the time by chance; judge any single flagged case by escalating its run count, not by its p-value",
+    "parity_decomposition": {
+      "antisymmetric_drift_component": {
+        "bp_of_base": 0.15460080699769588,
+        "mean": 0.00013784265584888545,
+        "standard_error": 0.0008031630560339161,
+        "t": 0.17162474644882647
+      },
+      "call_error": {
+        "bp_of_base": 0.4408851364975721,
+        "mean": 0.0003930948312580895,
+        "standard_error": 0.002281376657405678,
+        "t": 0.17230597585981558
+      },
+      "implied_mean_terminal_vs_forward": {
+        "bp_of_base": 0.01378426558495497,
+        "mean": 0.00014062726221055754,
+        "standard_error": 0.0008193880260256924,
+        "t": 0.17162474644967302
+      },
+      "interpretation": "a drift bias would push call and put in OPPOSITE directions and so appear in the antisymmetric component; a symmetric error would not",
+      "n_runs": 20,
+      "put_error": {
+        "bp_of_base": 0.36801569483648977,
+        "mean": 0.00025525217540920406,
+        "standard_error": 0.001529231100831068,
+        "t": 0.16691537026057476
+      }
+    },
+    "supporting_cases": [
+      {
+        "case": "otm_call",
+        "closed_form": 2.546926257627735,
+        "difference": -0.0016323810592719923,
+        "difference_bp_of_premium": -6.409219954379163,
+        "difference_in_standard_errors": -1.5393278653776157,
+        "kind": "call",
+        "mc_estimate": 2.545293876568463,
+        "n_runs": 40,
+        "paths_per_run": 1000000,
+        "standard_error": 0.0010604505355794034,
+        "standard_error_bp_of_premium": 4.163648367923816,
+        "strike": 120.0,
+        "total_paths": 40000000,
+        "two_sided_p_value": 0.13179942661226035,
+        "worst_single_run_bp": 64.45937355497107
+      },
+      {
+        "case": "itm_call",
+        "closed_form": 22.542853157065267,
+        "difference": 0.0005258365079967575,
+        "difference_bp_of_premium": 0.2332608496063208,
+        "difference_in_standard_errors": 0.4654244907483932,
+        "kind": "call",
+        "mc_estimate": 22.543378993573263,
+        "n_runs": 40,
+        "paths_per_run": 1000000,
+        "standard_error": 0.0011297998245670808,
+        "standard_error_bp_of_premium": 0.5011787180155519,
+        "strike": 80.0,
+        "total_paths": 40000000,
+        "two_sided_p_value": 0.6442161295541331,
+        "worst_single_run_bp": 7.214569033077545
+      },
+      {
+        "case": "atm_put",
+        "closed_form": 6.93590460924807,
+        "difference": -0.0008919757795293748,
+        "difference_bp_of_premium": -1.2860265960694561,
+        "difference_in_standard_errors": -0.8964578584101481,
+        "kind": "put",
+        "mc_estimate": 6.93501263346854,
+        "n_runs": 40,
+        "paths_per_run": 1000000,
+        "standard_error": 0.0009950002347140754,
+        "standard_error_bp_of_premium": 1.4345644739510692,
+        "strike": 100.0,
+        "total_paths": 40000000,
+        "two_sided_p_value": 0.3755086759439128,
+        "worst_single_run_bp": 21.516030327070503
+      }
+    ]
+  }
+}

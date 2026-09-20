@@ -433,3 +433,97 @@ liquidity is worst. When a whole market is positioned the same way — as onshor
 China was in 2022 — every dealer needs to sell the same underlying at the same
 moment. Nothing in this repository models that crowding; it prices one note in
 isolation under flat vol, which is the honest limit of what it can say.
+
+---
+
+## H2 — Monte Carlo agrees with the closed form to −1.25bp of premium
+
+**What the number means, and in what units of what base.** An at-the-money
+one-year European call, priced through the full production Monte Carlo stack
+over 40 million paths, came out **1.25 basis points of the premium** below M1's
+closed form, with a Monte Carlo standard error of **1.75 basis points of the
+premium**. The base is the premium — 8.916 — not the notional. The same absolute
+difference expressed against a notional of 100 would be 0.11bp, eleven times
+smaller, and quoting it that way would be flattering rather than informative.
+The difference is −0.71 standard errors, p = 0.481.
+
+**The mechanism.** There is nothing for the difference to be except sampling
+noise. GBM has a closed-form transition density, so every step of the scheme is
+exact *in law*: simulating `S_T` in one step and in 252 steps samples the same
+distribution. A European payoff depends only on `S_T`. So no discretisation
+error exists to be measured, and the remaining gap is the finite-sample error of
+an average — which shrinks as 1/√N and has no preferred sign.
+
+**What it is most sensitive to: the number of paths, and nothing else.** Double
+the paths and the standard error falls by √2 and the difference wanders inside
+it. The figure is not sensitive to step count, which is the point: the
+discretisation sweep at 1, 4, 12, 63 and 252 steps gives t = +0.25, +0.73, −0.81,
+−1.51, −1.76, with no drift.
+
+**What would make it wrong, and how you would know.**
+
+- *A drift error* — a missing `−σ²/2` Itô correction, a dividend yield applied
+  with the wrong sign. This is caught structurally, not statistically. Because
+  `max(S−K,0) − max(K−S,0) = S − K` exactly, a call and a put priced on
+  **identical** paths have an antisymmetric error component that is precisely
+  `e^(−rT)(mean S_T − E[S_T])`. A drift error pushes call and put in opposite
+  directions and appears there and nowhere else. Measured: t = +0.172, against
+  call and put errors of t = +0.172 and +0.167. The identity holds to 5.2e-14.
+- *Quoting the difference without the standard error.* This is trap 4, and it is
+  what makes a number like "1.25bp" meaningless on its own. The two always
+  travel together in the result JSON and in the report.
+- *Under-powering the comparison.* Covered at length below, because it actually
+  happened.
+
+**The honest limitations.**
+
+1. *This validates the engine against a payoff the engine finds easy.* A
+   European under GBM is the one case where the Monte Carlo has no
+   discretisation error at all. Agreement here says the plumbing is unbiased —
+   the drift, the discounting, the antithetic pairing, the chunked accumulation
+   — and says nothing about how the same engine handles a barrier, which is
+   where discretisation genuinely bites and which is M7's subject.
+2. *Absence of evidence.* With a standard error of 1.75bp, this run can rule out
+   a bias larger than roughly 3.5bp. It cannot rule out a bias of 0.5bp. The
+   honest claim is "no bias detectable at this precision", not "no bias".
+3. *The result is machine- and version-specific* in its last digits, as every
+   result JSON in this repository records.
+
+---
+
+## H2b — The flagged put, and why under-powering a check is its own failure mode
+
+**What happened.** The first run of this benchmark reported the at-the-money put
+at **−5.60bp with t = −2.26** — past the two-standard-error threshold at which
+CLAUDE.md says there is a real bias in the engine and it must be found before
+proceeding.
+
+**What was done about it.** Not a tolerance change. The case was escalated,
+holding everything else fixed and only adding independent runs:
+
+| runs | difference | t | p |
+|---|---|---|---|
+| 10 | −5.60 bp | −2.26 | 0.050 |
+| 20 | −3.80 bp | −2.28 | 0.034 |
+| 40 | −1.29 bp | −0.90 | 0.376 |
+| 80 | −0.05 bp | −0.05 | 0.960 |
+
+**Why that is decisive.** A bias is a fixed displacement; its t-statistic grows
+as `√n`, so a genuine −5.6bp bias would have become *more* significant with
+eight times the data, reaching t ≈ −6. Instead the estimate walked to −0.05bp
+and t to −0.05. Noise is the only explanation consistent with that pattern. The
+parity decomposition independently agrees: the drift component, where a
+put-specific bias would have to live, sits at t = +0.17.
+
+**The lesson, which is the part worth carrying.** The supporting cases were run
+at 10 runs against the headline's 40 — a quarter of the statistical power —
+while being reported in the same table and judged against the same
+two-standard-error rule. That asymmetry manufactured the alarm. Four cases were
+tested, so the chance of at least one two-sided p below 0.05 under a perfectly
+unbiased engine is about **19%**, not 5%. Both the equal run count and the
+multiple-comparisons caveat are now in the benchmark and in the result JSON.
+
+**What this would have looked like done badly.** Report the headline call at
+−1.25bp, quietly omit the put, and the repository still runs and still shows
+agreement. The number would have been true and the process indefensible — which
+is precisely the failure CLAUDE.md's mission section describes.

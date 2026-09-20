@@ -6,7 +6,7 @@ Every number below is read from a committed result JSON in `results/`, alongside
 
 `DEFENSE.md` carries one entry per number: what it means, the mechanism, what it is sensitive to, what would make it wrong, and the honest limitation.
 
-Headline numbers available: **1 of 1**.
+Headline numbers available: **2 of 2**.
 
 ---
 
@@ -62,3 +62,59 @@ python bench/variance_reduction.py
 - **Run at**: 2026-09-16T05:23:20.970782+00:00
 
 > Arms A and C share one simulation; B and D share another, so each control-variate comparison differs only by the control adjustment and not by sampling noise. Beta is estimated on independent pilot runs, one per pairing convention.
+
+---
+
+## Headline #2 — Monte Carlo agreement with the closed form
+
+A European call priced through the full production stack — the same stepped path engine, chunked driver, antithetic estimator and payoff plumbing that price the snowball — against M1's closed form.
+
+**Units: basis points OF THE PREMIUM, not of notional.** For an 8.92 premium on a 100 notional those differ by a factor of eleven. The Monte Carlo standard error is quoted in the same units beside the difference, because a difference without its standard error cannot be read as either agreement or bias.
+
+A European payoff under GBM has **no discretisation error** — each step of the scheme is exact in law — so the gap can only be sampling noise. Two things establish that rather than asserting it: the difference is pooled over independent runs so it carries a t-statistic, and a parity decomposition on identical paths isolates any drift bias, which would push the call and the put in opposite directions.
+
+### Result
+
+| quantity | value |
+|---|---|
+| Difference from closed form | `-1.25 bp of premium` |
+| Monte Carlo standard error | `1.75 bp of premium` |
+| Difference, in standard errors<br><sub>the acceptance threshold is two</sub> | `-0.71` |
+| Two-sided p-value | `0.481` |
+| Closed form price | `8.91603728` |
+| Monte Carlo price | `8.91492593` |
+| Total paths | `40,000,000` |
+| Worst single run | `27.40 bp` |
+| Parity check — drift component<br><sub>a drift bias would appear here and nowhere else</sub> | `t = +0.17` |
+| Parity check — call error | `t = +0.17` |
+| Parity check — put error | `t = +0.17` |
+| numba and NumPy engines bit-identical<br><sub>re-verified in-run, so the "same code path" claim is tested where it is made</sub> | `True` |
+
+### Inputs
+
+| input | value |
+|---|---|
+| Product | `European option priced through the full stepped production stack` |
+| Time steps | `252` |
+| Paths per run | `1,000,000` |
+| Independent runs pooled | `40` |
+| Engine | `numba` |
+| Discretisation sweep | `[1, 4, 12, 63, 252]` |
+| Market | `div_yield=0.0, rate=0.02, spot=100.0, vol=0.2` |
+
+### Reproducing it
+
+```bash
+python bench/closed_form_agreement.py
+```
+
+- **Seed**: `27182818` (registered in `config.SEEDS`)
+- **Commit**: `8b621407ed6efb1b9347454ad17188dee0a38a4f` (branch `main`)  
+  **Working tree was dirty at run time** — this number is reproducible only from that tree, not from the commit alone.
+- **Python**: 3.13.5 (CPython)
+- **Libraries**: numba 0.61.0, numpy 2.1.3, pandas 2.2.3, scipy 1.15.3
+- **Machine**: Apple M2, arm64, macOS-26.5-arm64-arm-64bit-Mach-O
+- **Result JSON**: [`results/closed_form_agreement__20260917T054953_284506Z.json`](results/closed_form_agreement__20260917T054953_284506Z.json)
+- **Run at**: 2026-09-17T05:49:53.284506+00:00
+
+> Headline pooled over independent runs so the difference has a standard error of its own and unbiasedness can be tested rather than eyeballed. Run count chosen for precision, not to reach a target value.

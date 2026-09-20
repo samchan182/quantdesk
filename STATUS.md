@@ -3,7 +3,7 @@
 Milestone checklist. The agent maintains this file; §7 of `CLAUDE.md` says each
 session starts by reading it and resuming from the first incomplete milestone.
 
-**Current position: M4 complete. Next: M5 — Monte Carlo validated against closed form, headline #2.**
+**Current position: M5 complete — headlines #1 and #2 exist. Next: M6 — Greeks, pathwise versus bump-and-revalue, headline #3.**
 
 | # | Milestone | State | Headline |
 |---|---|---|---|
@@ -12,7 +12,7 @@ session starts by reading it and resuming from the first incomplete milestone.
 | M2 | GBM path engine | **done** | — |
 | M3 | Variance reduction study | **done** | **#1** |
 | M4 | Structured products | **done** | — |
-| M5 | MC vs closed form | not started | #2 |
+| M5 | MC vs closed form | **done** | **#2** |
 | M6 | Greeks: pathwise vs bump | not started | #3 |
 | M7 | Discrete monitoring / Brownian bridge | not started | #4 |
 | M8 | Market data and volume curve | not started | — |
@@ -342,6 +342,81 @@ dips to 50% on day one and then recovers to 120%: it pays the month-one coupon,
 not the loss.
 
 **Emits.** Nothing to `REPORT.md`. M4 has no headline.
+
+---
+
+## M5 — done → headline #2
+
+**Built.** `bench/closed_form_agreement.py`. `src/quantdesk/units.py`, so that
+"basis points of what" is a function signature rather than a convention.
+
+**Headline #2: −1.25 bp of premium, standard error 1.75 bp** (−0.71 standard
+errors, p = 0.481) over 40,000,000 paths. The author's earlier draft expected
+1–3bp; the measured magnitude falls in that range, and nothing was tuned to put
+it there — run count was chosen for precision, before any result was seen.
+
+**Both conventions fixed and stated.** Differences are in basis points **of the
+premium**, not of notional: for an 8.92 premium on a 100 notional those differ
+by a factor of eleven, and `units.py` gives the two bases different function
+names so a call site cannot leave it ambiguous. The Monte Carlo standard error
+is quoted **in the same units, beside every difference** — a −1.25bp gap against
+a 1.75bp standard error is agreement; against a 0.1bp standard error it would be
+a bias.
+
+**All four cases, at 40 independent runs each.**
+
+| case | closed form | Monte Carlo | diff (bp) | se (bp) | t | p |
+|---|---|---|---|---|---|---|
+| ATM call | 8.91603728 | 8.91492593 | −1.25 | 1.75 | −0.71 | 0.481 |
+| OTM call (K=120) | 2.54692626 | 2.54529388 | −6.41 | 4.16 | −1.54 | 0.132 |
+| ITM call (K=80) | 22.54285316 | 22.54337899 | +0.23 | 0.50 | +0.47 | 0.644 |
+| ATM put | 6.93590461 | 6.93501263 | −1.29 | 1.43 | −0.90 | 0.376 |
+
+**A flagged difference, investigated and resolved — the part of this milestone
+worth talking about.** The first run used only 10 runs for the supporting cases
+and the at-the-money put came out at **−5.60bp with t = −2.26**, past the
+two-standard-error threshold the spec says must be investigated before
+proceeding. It was. Escalating that same case:
+
+| runs | difference | t | p |
+|---|---|---|---|
+| 10 | −5.60 bp | −2.26 | 0.050 |
+| 20 | −3.80 bp | −2.28 | 0.034 |
+| 40 | −1.29 bp | −0.90 | 0.376 |
+| 80 | **−0.05 bp** | **−0.05** | 0.960 |
+
+A real bias grows in significance as `t ∝ √n`. This collapsed toward zero, so it
+was sampling noise — made to look like a finding by testing four cases at a
+tenth of the headline's statistical power. `SUPPORTING_RUNS` is now 40, equal to
+the headline, and the result JSON records the multiple-comparisons caveat:
+with four cases, one two-sided p below 0.05 is expected about 19% of the time.
+
+**The structural version of the same check: a parity decomposition.** Since
+`max(S−K,0) − max(K−S,0) = S − K` *exactly*, pricing a call and a put on
+**identical** paths makes the antisymmetric part of their errors entirely a
+statement about the sample mean of `S_T`. A drift bias — a missing Itô
+correction, a wrong dividend yield — pushes the call and the put in **opposite**
+directions and lands there; anything symmetric does not. Measured over 20 paired
+runs: call error t = +0.172, put error t = +0.167, antisymmetric drift component
+t = +0.172. The identity itself holds to 5.2e-14.
+
+One honest caveat recorded in the code: the fourth reported component,
+`implied_mean_terminal_vs_forward`, is the antisymmetric component multiplied by
+`e^(rT)`, so its t-statistic is identical **by definition**. It restates the
+drift error in units of the underlying, and is not independent corroboration.
+
+**No discretisation error, demonstrated rather than asserted.** The same option
+at 1, 4, 12, 63 and 252 steps gives t = +0.25, +0.73, −0.81, −1.51, −1.76 — every
+point within two standard errors, and no drift with step count. That is the
+direct evidence for the claim the whole milestone rests on: each step of the
+scheme is exact in law, so the gap has nothing but sampling noise to be made of.
+
+**The "same code path" claim is verified in-run.** The structured products run
+on the NumPy engine; this benchmark uses numba for throughput. The benchmark
+re-checks that the two are bit-identical at the moment it makes the claim, and
+raises if they are not, rather than inheriting the result from M2.
+
+**Emits.** Headline #2 to `REPORT.md`.
 
 ---
 
