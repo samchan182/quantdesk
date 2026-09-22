@@ -3,7 +3,7 @@
   "environment": {
     "cpu_model": "Apple M2",
     "git_branch": "main",
-    "git_commit": "8b621407ed6efb1b9347454ad17188dee0a38a4f",
+    "git_commit": "056c4e88dfb5a559520e277f60aa021ff5d870f4",
     "git_dirty": true,
     "machine": "arm64",
     "packages": {
@@ -45,7 +45,7 @@
   "notes": "Headline pooled over independent runs so the difference has a standard error of its own and unbiasedness can be tested rather than eyeballed. Run count chosen for precision, not to reach a target value.",
   "schema_version": 1,
   "seed": 27182818,
-  "timestamp_utc": "2026-09-17T05:49:53.284506+00:00",
+  "timestamp_utc": "2026-09-20T10:01:41.063616+00:00",
   "values": {
     "convention": "differences in basis points OF THE PREMIUM, not of notional; the Monte Carlo standard error is quoted in the same units",
     "discretisation_sweep": [

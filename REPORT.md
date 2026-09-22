@@ -109,12 +109,12 @@ python bench/closed_form_agreement.py
 ```
 
 - **Seed**: `27182818` (registered in `config.SEEDS`)
-- **Commit**: `8b621407ed6efb1b9347454ad17188dee0a38a4f` (branch `main`)  
+- **Commit**: `056c4e88dfb5a559520e277f60aa021ff5d870f4` (branch `main`)  
   **Working tree was dirty at run time** — this number is reproducible only from that tree, not from the commit alone.
 - **Python**: 3.13.5 (CPython)
 - **Libraries**: numba 0.61.0, numpy 2.1.3, pandas 2.2.3, scipy 1.15.3
 - **Machine**: Apple M2, arm64, macOS-26.5-arm64-arm-64bit-Mach-O
-- **Result JSON**: [`results/closed_form_agreement__20260917T054953_284506Z.json`](results/closed_form_agreement__20260917T054953_284506Z.json)
-- **Run at**: 2026-09-17T05:49:53.284506+00:00
+- **Result JSON**: [`results/closed_form_agreement__20260920T100141_063616Z.json`](results/closed_form_agreement__20260920T100141_063616Z.json)
+- **Run at**: 2026-09-20T10:01:41.063616+00:00
 
 > Headline pooled over independent runs so the difference has a standard error of its own and unbiasedness can be tested rather than eyeballed. Run count chosen for precision, not to reach a target value.
