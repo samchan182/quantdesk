@@ -129,6 +129,59 @@ HEADLINES: list[Headline] = [
             Row("Discretisation sweep", "discretisation_sweep_steps", "{}"),
         ],
     ),
+    Headline(
+        number=3,
+        title="Greeks: pathwise versus bump-and-revalue",
+        benchmark="greeks",
+        command="python bench/greeks.py",
+        summary=(
+            "Pathwise and central-difference sensitivities on a European, both scored "
+            "against M1's exact delta and vega rather than against each other.\n\n"
+            "**Units matter here.** Delta is dimensionless and lives in [0,1]; vega is a "
+            "price per 1.00 of volatility, with a scale near 37. The same absolute "
+            "tolerance means very different things for the two, so each is labelled.\n\n"
+            "**The compute ratio is quoted at matched standard error on the Greek**, not at "
+            "matched path count. Central differencing needs about five pricing runs for "
+            "price, delta and vega; pathwise produces all three from one. The honest "
+            "theoretical ratio is therefore about one fifth — a tenth would require bumping "
+            "to need extra paths on top, which with common random numbers it does not."
+        ),
+        rows=[
+            Row("Pathwise vs bump, delta", "vanilla_agreement.pathwise_vs_bump_delta_absolute", "{:.3e}",
+                "absolute, on a dimensionless quantity in [0,1]"),
+            Row("Pathwise vs bump, vega", "vanilla_agreement.pathwise_vs_bump_vega_absolute", "{:.3e}",
+                "absolute, price per 1.00 of volatility (vega is ~39 here)"),
+            Row("Pathwise vs bump, vega, relative", "vanilla_agreement.pathwise_vs_bump_vega_relative", "{:.3e}"),
+            Row("Pathwise delta error vs closed form", "vanilla_agreement.pathwise_delta.absolute_error", "{:.3e}"),
+            Row("Bumped delta error vs closed form", "vanilla_agreement.bump_delta.absolute_error", "{:.3e}"),
+            Row("Compute ratio at matched accuracy, delta", "compute_ratio.delta.cost_ratio_pathwise_over_bump", "{:.3f}",
+                "pathwise cost as a fraction of bumping's, at equal standard error"),
+            Row("Compute ratio at matched accuracy, vega", "compute_ratio.vega.cost_ratio_pathwise_over_bump", "{:.3f}"),
+            Row("Compute ratio at matched path count", "compute_ratio.cost_ratio_at_matched_path_count", "{:.3f}",
+                "the easier comparison, reported alongside so the convention is explicit"),
+            Row("Paths bumping needs to match pathwise, delta", "compute_ratio.delta.paths_bump_needs_to_match", "{:.2f}x"),
+            Row("Pathwise on a digital (INVALID)", "discontinuous_payoff.pathwise_invalid.estimate", "{:.8f}",
+                "returned with a standard error of exactly zero, against a true delta of 0.0196 — it does not raise"),
+            Row("Likelihood-ratio delta on a digital", "discontinuous_payoff.likelihood_ratio.estimate", "{:.8f}"),
+            Row("Digital delta, closed form", "discontinuous_payoff.digital_closed_form_delta", "{:.8f}"),
+            Row("Likelihood-ratio error, in standard errors", "discontinuous_payoff.likelihood_ratio.error_in_standard_errors", "{:+.2f}"),
+            Row("Variance cost of likelihood ratio where pathwise is legal", "discontinuous_payoff.variance_cost_of_lr_on_a_vanilla.equivalent_path_multiple", "{:.1f}x the paths"),
+            Row("Common random numbers: standard-error penalty without", "common_random_numbers.standard_error_ratio", "{:.1f}x worse"),
+            Row("Common random numbers: equivalent path penalty", "common_random_numbers.equivalent_path_multiple", "{:.0f}x the paths"),
+            Row("Bump sweep WITHOUT CRN: se amplification", "bump_size_sweep.without_common_random_numbers.standard_error_amplification_small_over_large", "{:.1f}x",
+                "the U shape — noise amplified as 1/h at small bumps"),
+            Row("Bump sweep WITH CRN: se amplification", "bump_size_sweep.with_common_random_numbers.standard_error_amplification_small_over_large", "{:.1f}x",
+                "no U — the standard error flattens onto the pathwise floor"),
+            Row("Optimal bump, with CRN", "bump_size_sweep.with_common_random_numbers.minimum_at_relative_bump", "{:g} relative"),
+            Row("Optimal bump, without CRN", "bump_size_sweep.without_common_random_numbers.minimum_at_relative_bump", "{:g} relative"),
+        ],
+        input_rows=[
+            Row("Paths", "n_paths", "{:,}"),
+            Row("Relative spot bump", "relative_spot_bump", "{:g}"),
+            Row("Absolute vol bump", "absolute_vol_bump", "{:g}"),
+            Row("Sweep bumps", "sweep_bumps", "{}"),
+        ],
+    ),
 ]
 
 

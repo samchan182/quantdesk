@@ -1,0 +1,205 @@
+{
+  "benchmark": "greeks",
+  "environment": {
+    "cpu_model": "Apple M2",
+    "git_branch": "main",
+    "git_commit": "3998a0df1d7f6c78b82c17d4f15840dc2fac4008",
+    "git_dirty": true,
+    "machine": "arm64",
+    "packages": {
+      "numba": "0.61.0",
+      "numpy": "2.1.3",
+      "pandas": "2.2.3",
+      "scipy": "1.15.3"
+    },
+    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+    "python_implementation": "CPython",
+    "python_version": "3.13.5"
+  },
+  "inputs": {
+    "absolute_vol_bump": 0.01,
+    "market": {
+      "div_yield": 0.0,
+      "rate": 0.02,
+      "spot": 100.0,
+      "vol": 0.2
+    },
+    "maturity": 1.0,
+    "n_paths": 4000000,
+    "relative_spot_bump": 0.01,
+    "seed": 16180339,
+    "strike": 100.0,
+    "sweep_bumps": [
+      0.0001,
+      0.0003,
+      0.001,
+      0.003,
+      0.01,
+      0.03,
+      0.1
+    ]
+  },
+  "notes": "Compute ratio is reported at matched standard error on the Greek, and also at matched path count, with both labelled. Cost is counted in pricing runs, which is deterministic; wall-clock is recorded but flagged.",
+  "schema_version": 1,
+  "seed": 16180339,
+  "timestamp_utc": "2026-09-22T04:41:41.391109+00:00",
+  "values": {
+    "bump_size_sweep": {
+      "minimum_absolute_error": 0.00014239054526377082,
+      "minimum_at_relative_bump": 0.01,
+      "rows": [
+        {
+          "absolute_error": 0.00020736078126903923,
+          "estimate": 0.579467070220372,
+          "relative_bump": 0.0001,
+          "standard_error": 0.00029437912419821817
+        },
+        {
+          "absolute_error": 0.0002074921472191571,
+          "estimate": 0.5794672015863221,
+          "relative_bump": 0.0003,
+          "standard_error": 0.0002943250112938702
+        },
+        {
+          "absolute_error": 0.00022117581076441795,
+          "estimate": 0.5794808852498674,
+          "relative_bump": 0.001,
+          "standard_error": 0.00029413378838968754
+        },
+        {
+          "absolute_error": 0.0002327795727771198,
+          "estimate": 0.5794924890118801,
+          "relative_bump": 0.003,
+          "standard_error": 0.00029358597601279735
+        },
+        {
+          "absolute_error": 0.00014239054526377082,
+          "estimate": 0.5794020999843668,
+          "relative_bump": 0.01,
+          "standard_error": 0.0002916638309257748
+        },
+        {
+          "absolute_error": 0.0003780418577571387,
+          "estimate": 0.5788816675813458,
+          "relative_bump": 0.03,
+          "standard_error": 0.00028605431031020185
+        },
+        {
+          "absolute_error": 0.005957627826656653,
+          "estimate": 0.5733020816124463,
+          "relative_bump": 0.1,
+          "standard_error": 0.0002653043224073111
+        }
+      ],
+      "shape_comment": "U-shaped in the bump size: differencing noise amplified by 1/(2h) dominates at small bumps, truncation error at large ones"
+    },
+    "common_random_numbers": {
+      "comment": "without common random numbers the estimator differences two independently noisy prices, and the 1/(2h) amplification turns that noise into the dominant term",
+      "equivalent_path_multiple": 280.5207027615412,
+      "standard_error_ratio": 16.74875227476785,
+      "with_common_random_numbers": {
+        "absolute_error": 0.00010327486025851762,
+        "estimate": 0.5791564345788445,
+        "standard_error": 0.0002916239666513947
+      },
+      "without_common_random_numbers": {
+        "absolute_error": 0.005804497019111787,
+        "estimate": 0.5734552124199912,
+        "standard_error": 0.004884337574829371
+      }
+    },
+    "compute_ratio": {
+      "bump_pricing_runs": 5,
+      "bump_pricing_runs_note": "base, spot up, spot down, vol up, vol down",
+      "cost_ratio_at_matched_path_count": 0.2,
+      "delta": {
+        "bump_standard_error": 0.0002916669088506449,
+        "cost_ratio_pathwise_over_bump": 0.2037522654322338,
+        "paths_bump_needs_to_match": 0.9815841780984675,
+        "pathwise_standard_error": 0.0002943902241033491
+      },
+      "matching_convention": "matched standard error on the Greek",
+      "pathwise_pricing_runs": 1,
+      "vega": {
+        "bump_standard_error": 0.037282697181088384,
+        "cost_ratio_pathwise_over_bump": 0.20001428187946055,
+        "paths_bump_needs_to_match": 0.9999285957016351,
+        "pathwise_standard_error": 0.03728402832479253
+      },
+      "wall_clock_seconds": {
+        "bump_delta_and_vega": 0.2644725000136532,
+        "note": "wall-clock is not deterministic (R5); the pricing-run counts are",
+        "pathwise_all_greeks": 0.1146019590087235
+      }
+    },
+    "discontinuous_payoff": {
+      "bump_crn": {
+        "absolute_error": 4.497737664915791e-05,
+        "error_in_standard_errors": 0.9368006508636163,
+        "estimate": 0.019597112075421953,
+        "standard_error": 4.8011683817356694e-05
+      },
+      "digital_closed_form_delta": 0.019552134698772795,
+      "digital_closed_form_price": 0.4900993366533776,
+      "likelihood_ratio": {
+        "absolute_error": 1.0307537885674567e-05,
+        "error_in_standard_errors": -0.720303212516627,
+        "estimate": 0.01954182716088712,
+        "standard_error": 1.430999849308132e-05
+      },
+      "pathwise_invalid": {
+        "absolute_error": 0.019552134698772795,
+        "comment": "exactly zero, with a standard error of exactly zero, because the derivative of a step function is zero almost everywhere. The estimator does not raise; it reports a confident wrong answer.",
+        "estimate": 0.0,
+        "standard_error": 0.0
+      },
+      "variance_cost_of_lr_on_a_vanilla": {
+        "comment": "the price of tolerating discontinuities: on a payoff where pathwise is legal, the likelihood ratio needs this many times the paths for the same accuracy, so it is used only where pathwise is invalid",
+        "equivalent_path_multiple": 5.5758782112598135,
+        "likelihood_ratio_standard_error": 0.0006951362475764647,
+        "pathwise_standard_error": 0.00029438338552302334,
+        "standard_error_ratio": 2.361329754875378
+      }
+    },
+    "estimator_assignment": "Route A (likelihood ratio) is implemented. Pathwise is used for the vanilla and for any Lipschitz leg; the likelihood ratio is used wherever the payoff jumps - digitals and knock-out features. Pathwise is never applied across a discontinuity.",
+    "vanilla_agreement": {
+      "bump_delta": {
+        "absolute_error": 7.883390146534719e-05,
+        "absolute_in": "delta, dimensionless in [0,1]",
+        "error_in_standard_errors": -0.2702708615987069,
+        "estimate": 0.5791808755376376,
+        "standard_error": 0.0002916847972401786,
+        "truth": 0.579259709439103
+      },
+      "bump_vega": {
+        "absolute_error": 0.02488886815871183,
+        "absolute_in": "vega, price per 1.00 of volatility",
+        "error_in_standard_errors": 0.6667953082199343,
+        "estimate": 39.1291582657043,
+        "standard_error": 0.03732609970690217,
+        "truth": 39.104269397545586
+      },
+      "n_paths": 4000000,
+      "note": "delta is dimensionless so an absolute tolerance on it is a much stronger claim than the same absolute tolerance on vega, whose scale here is about 37 per 1.00 of volatility",
+      "pathwise_delta": {
+        "absolute_error": 2.596016720324279e-05,
+        "absolute_in": "delta, dimensionless in [0,1]",
+        "error_in_standard_errors": -0.08817820616877856,
+        "estimate": 0.5792337492718997,
+        "standard_error": 0.0002944057078407041,
+        "truth": 0.579259709439103
+      },
+      "pathwise_vega": {
+        "absolute_error": 0.025522434712023312,
+        "absolute_in": "vega, price per 1.00 of volatility",
+        "error_in_standard_errors": 0.6837469059633317,
+        "estimate": 39.12979183225761,
+        "standard_error": 0.03732731291275787,
+        "truth": 39.104269397545586
+      },
+      "pathwise_vs_bump_delta_absolute": 5.28737342621044e-05,
+      "pathwise_vs_bump_vega_absolute": 0.000633566553311482,
+      "pathwise_vs_bump_vega_relative": 1.620197904403882e-05
+    }
+  }
+}

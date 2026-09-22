@@ -47,6 +47,9 @@ __all__ = [
     "gamma",
     "greeks",
     "forward",
+    "digital_price",
+    "digital_delta",
+    "digital_vega",
 ]
 
 OptionKind = Literal["call", "put"]
@@ -254,3 +257,67 @@ def greeks(S, K, r, q, sigma, T, kind: OptionKind = "call") -> dict[str, Any]:
         "vega": vega(S, K, r, q, sigma, T),
         "gamma": gamma(S, K, r, q, sigma, T),
     }
+
+
+# --------------------------------------------------------------------------
+# Cash-or-nothing digital (added at M6)
+# --------------------------------------------------------------------------
+# A digital is the sharpest available test case for a Greeks estimator. Its
+# payoff is a step function, so it is precisely the situation in which the
+# pathwise method is invalid — and unlike a knock-out barrier it still has a
+# clean closed form to validate a likelihood-ratio estimator against.
+
+
+def digital_price(S, K, r, q, sigma, T, kind: OptionKind = "call"):
+    """Cash-or-nothing digital paying one unit if it finishes in the money."""
+    _check_kind(kind)
+    S_, K_, _, _, _, d2, _, degenerate, df_r, df_q = _core(S, K, r, q, sigma, T)
+    itm = (S_ * df_q - K_ * df_r) > 0.0
+
+    if kind == "call":
+        regular, limit = df_r * ndtr(d2), np.where(itm, df_r, 0.0)
+    else:
+        regular, limit = df_r * ndtr(-d2), np.where(itm, 0.0, df_r)
+
+    return _scalarise(np.where(degenerate, limit, regular), S, K, r, q, sigma, T)
+
+
+def digital_delta(S, K, r, q, sigma, T, kind: OptionKind = "call"):
+    """dPrice/dSpot for a digital.
+
+    Since ``d(d2)/dS = 1 / (S*sigma*sqrt(T))``, the delta is a scaled normal
+    density: sharply peaked at the money and vanishing in both tails. This is
+    the quantity M6's likelihood-ratio estimator is validated against, and also
+    the quantity the pathwise estimator silently reports as exactly zero.
+
+    In the degenerate case the price is a step in spot, so the derivative is
+    zero away from the money forward and infinite at it — the same structure as
+    gamma's degenerate limit, and returned as ``inf`` for the same reason.
+    """
+    _check_kind(kind)
+    S_, K_, _, _, _, d2, vol_sqrt_t, degenerate, df_r, df_q = _core(S, K, r, q, sigma, T)
+
+    denom = np.where(degenerate, 1.0, S_ * vol_sqrt_t)
+    magnitude = df_r * _norm_pdf(d2) / denom
+    regular = magnitude if kind == "call" else -magnitude
+
+    at_forward = (S_ * df_q - K_ * df_r) == 0.0
+    limit = np.where(at_forward, np.inf if kind == "call" else -np.inf, 0.0)
+
+    return _scalarise(np.where(degenerate, limit, regular), S, K, r, q, sigma, T)
+
+
+def digital_vega(S, K, r, q, sigma, T, kind: OptionKind = "call"):
+    """dPrice/dSigma for a digital, per 1.00 of volatility.
+
+    Uses the identity ``d(d2)/dsigma = -d1/sigma``. Note the sign: a digital
+    call's vega is **negative** when it is in the money, because more
+    volatility makes a payoff that is already likely less likely. That sign
+    flip is a useful check that a Monte Carlo estimator is producing the right
+    quantity rather than merely plausible positive numbers.
+    """
+    _check_kind(kind)
+    _, _, sigma_, _, d1, d2, _, degenerate, df_r, _ = _core(S, K, r, q, sigma, T)
+    magnitude = -df_r * _norm_pdf(d2) * d1 / np.where(degenerate, 1.0, sigma_)
+    regular = magnitude if kind == "call" else -magnitude
+    return _scalarise(np.where(degenerate, 0.0, regular), S, K, r, q, sigma, T)
