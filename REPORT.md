@@ -6,7 +6,7 @@ Every number below is read from a committed result JSON in `results/`, alongside
 
 `DEFENSE.md` carries one entry per number: what it means, the mechanism, what it is sensitive to, what would make it wrong, and the honest limitation.
 
-Headline numbers available: **2 of 2**.
+Headline numbers available: **3 of 3**.
 
 ---
 
@@ -117,3 +117,64 @@ python bench/closed_form_agreement.py
 - **Run at**: 2026-09-22T04:34:33.260080+00:00
 
 > Headline pooled over independent runs so the difference has a standard error of its own and unbiasedness can be tested rather than eyeballed. Run count chosen for precision, not to reach a target value.
+
+---
+
+## Headline #3 — Greeks: pathwise versus bump-and-revalue
+
+Pathwise and central-difference sensitivities on a European, both scored against M1's exact delta and vega rather than against each other.
+
+**Units matter here.** Delta is dimensionless and lives in [0,1]; vega is a price per 1.00 of volatility, with a scale near 37. The same absolute tolerance means very different things for the two, so each is labelled.
+
+**The compute ratio is quoted at matched standard error on the Greek**, not at matched path count. Central differencing needs about five pricing runs for price, delta and vega; pathwise produces all three from one. The honest theoretical ratio is therefore about one fifth — a tenth would require bumping to need extra paths on top, which with common random numbers it does not.
+
+### Result
+
+| quantity | value |
+|---|---|
+| Pathwise vs bump, delta<br><sub>absolute, on a dimensionless quantity in [0,1]</sub> | `5.287e-05` |
+| Pathwise vs bump, vega<br><sub>absolute, price per 1.00 of volatility (vega is ~39 here)</sub> | `6.336e-04` |
+| Pathwise vs bump, vega, relative | `1.620e-05` |
+| Pathwise delta error vs closed form | `2.596e-05` |
+| Bumped delta error vs closed form | `7.883e-05` |
+| Compute ratio at matched accuracy, delta<br><sub>pathwise cost as a fraction of bumping's, at equal standard error</sub> | `0.204` |
+| Compute ratio at matched accuracy, vega | `0.200` |
+| Compute ratio at matched path count<br><sub>the easier comparison, reported alongside so the convention is explicit</sub> | `0.200` |
+| Paths bumping needs to match pathwise, delta | `0.98x` |
+| Pathwise on a digital (INVALID)<br><sub>returned with a standard error of exactly zero, against a true delta of 0.0196 — it does not raise</sub> | `0.00000000` |
+| Likelihood-ratio delta on a digital | `0.01954183` |
+| Digital delta, closed form | `0.01955213` |
+| Likelihood-ratio error, in standard errors | `-0.72` |
+| Variance cost of likelihood ratio where pathwise is legal | `5.6x the paths` |
+| Common random numbers: standard-error penalty without | `16.7x worse` |
+| Common random numbers: equivalent path penalty | `281x the paths` |
+| Bump sweep WITHOUT CRN: se amplification<br><sub>the U shape — noise amplified as 1/h at small bumps</sub> | `958.6x` |
+| Bump sweep WITH CRN: se amplification<br><sub>no U — the standard error flattens onto the pathwise floor</sub> | `1.1x` |
+| Optimal bump, with CRN | `0.01 relative` |
+| Optimal bump, without CRN | `0.03 relative` |
+
+### Inputs
+
+| input | value |
+|---|---|
+| Paths | `4,000,000` |
+| Relative spot bump | `0.01` |
+| Absolute vol bump | `0.01` |
+| Sweep bumps | `[0.0001, 0.0003, 0.001, 0.003, 0.01, 0.03, 0.1]` |
+| Market | `div_yield=0.0, rate=0.02, spot=100.0, vol=0.2` |
+
+### Reproducing it
+
+```bash
+python bench/greeks.py
+```
+
+- **Seed**: `16180339` (registered in `config.SEEDS`)
+- **Commit**: `4e2d6fe66f2d6ba3c47185c47fc248b1fc3c338c` (branch `main`)
+- **Python**: 3.13.5 (CPython)
+- **Libraries**: numba 0.61.0, numpy 2.1.3, pandas 2.2.3, scipy 1.15.3
+- **Machine**: Apple M2, arm64, macOS-26.5-arm64-arm-64bit-Mach-O
+- **Result JSON**: [`results/greeks__20260922T044457_942505Z.json`](results/greeks__20260922T044457_942505Z.json)
+- **Run at**: 2026-09-22T04:44:57.942505+00:00
+
+> Compute ratio is reported at matched standard error on the Greek, and also at matched path count, with both labelled. Cost is counted in pricing runs, which is deterministic; wall-clock is recorded but flagged.

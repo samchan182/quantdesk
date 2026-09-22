@@ -527,3 +527,123 @@ multiple-comparisons caveat are now in the benchmark and in the result JSON.
 −1.25bp, quietly omit the put, and the repository still runs and still shows
 agreement. The number would have been true and the process indefensible — which
 is precisely the failure CLAUDE.md's mission section describes.
+
+---
+
+## H3 — Pathwise Greeks cost about a fifth of bump-and-revalue, at matched accuracy
+
+**What the number means, and in what units.** Computing price, delta and vega by
+pathwise differentiation costs **0.204** of what computing the same three by
+central differencing costs, at **equal standard error on the Greek**. The cost
+unit is a pricing run — one pass over the paths — which is deterministic and
+reproducible; wall-clock is recorded in the result JSON but flagged
+non-deterministic under R5.
+
+**The mechanism.** Central differencing needs five pricing runs: a base price,
+spot up, spot down, vol up, vol down. Pathwise differentiates the payoff along
+each path and produces all three quantities from a single pass. That is the
+whole of the five-to-one. With common random numbers the bumped estimator also
+turns out to have essentially the *same variance* as the pathwise one — it needs
+0.98× the paths to match — so the matched-accuracy ratio and the matched-path-
+count ratio coincide at about a fifth.
+
+**Why the matching convention has to be stated.** At matched path count the
+comparison answers "how much work per path", which is the easy question. At
+matched accuracy it answers "how much work for an answer of the same quality",
+which is the one that matters. They differ whenever the two estimators have
+different variances — and they would differ a great deal here if common random
+numbers were switched off, since bumping's variance would then be 281× higher.
+
+**Against the author's earlier draft.** The draft said one tenth. One tenth
+would require bumping to need roughly twice the paths *on top of* its five
+pricing runs. With common random numbers it does not. **One fifth is the honest
+answer**, and it is the one CLAUDE.md's own reasoning predicts.
+
+**What would make it wrong.** Counting cost in wall-clock on a machine where the
+payoff is trivial relative to path generation would flatter pathwise, because
+the marginal cost of a second payoff evaluation on already-generated paths is
+near zero. Counting in pricing runs avoids that. Conversely, for a product whose
+payoff evaluation dominates path generation — a snowball with 504 observation
+dates and four branches — the five-to-one would understate pathwise's advantage.
+
+**The honest limitations.** This is one product, a European, at one parameter
+set. Pathwise's advantage grows with the number of sensitivities wanted (each
+additional Greek costs bumping two more runs and pathwise almost nothing) and
+shrinks to nothing for a payoff where pathwise is invalid and the likelihood
+ratio's 5.6× variance penalty has to be paid instead.
+
+---
+
+## H3b — The pathwise method is invalid across a discontinuity, and fails silently
+
+**The claim.** Interchanging the derivative and the expectation requires the
+payoff to be Lipschitz continuous in the parameter and differentiable almost
+everywhere. A vanilla call qualifies: the kink at the strike is a single point
+of probability zero. A digital or a knock-out does **not**: the payoff jumps.
+
+**The demonstration, which is the point.** For a digital struck at the money,
+the naive pathwise estimator returns **exactly 0.0**, with a standard error of
+**exactly 0.0**, against a closed-form delta of **0.01955213**. The reason is
+immediate once stated: the derivative of a step function is zero almost
+everywhere, so every per-path sample is zero. The estimator does not raise, does
+not warn, and reports a tight confidence interval around a completely wrong
+number. A zero standard error makes it look *more* trustworthy than a correct
+estimator would.
+
+`mc/greeks.py` contains `pathwise_digital_delta` for no purpose other than to
+make this reproducible, with a docstring saying so.
+
+**The fix, and what it costs.** Route A, the likelihood ratio: differentiate the
+*density* rather than the payoff, so the payoff is never differentiated and may
+jump freely. `Delta_LR = e^(−rT) E[payoff · Z/(S₀σ√T)]`. On the digital it
+returns 0.01954183, **−0.72 standard errors** from the closed form. The cost is
+variance — the score function grows without bound in the tails — measured at
+**5.6× the paths** on a payoff where pathwise is legal. That is why the
+assignment is per-leg rather than global.
+
+**Which estimator is used where, stated plainly.** Pathwise for the vanilla and
+for any Lipschitz leg. Likelihood ratio wherever the payoff jumps: digitals, and
+the snowball's knock-out feature. Claiming pathwise works everywhere is the weak
+answer that fails on the first follow-up.
+
+**What would make it wrong.** If the likelihood ratio were validated only on a
+*continuous* payoff, the test would pass while saying nothing about the case it
+exists for. It is therefore validated on the digital, where the closed-form
+delta is known and where pathwise demonstrably fails.
+
+---
+
+## H3c — The bump-size sweep is not U-shaped, and the reason is common random numbers
+
+**The expectation, and the measurement.** CLAUDE.md predicts a U: noise
+amplification dominating at small bumps, truncation at large ones. Measured:
+
+| | standard-error amplification, smallest/largest bump | minimum |
+|---|---|---|
+| without common random numbers | **958.6×** | h = 0.03 |
+| with common random numbers | **1.1×** | h = 0.01 |
+
+**The mechanism.** Without common random numbers the numerator `P(S+h) − P(S−h)`
+differences two *independently* noisy prices. Its standard error barely depends
+on `h`, so dividing by `2h` amplifies it as `1/h` — and the measured scaling is
+exactly `1/h` across the grid, a factor of three per threefold step. That rising
+left arm, meeting truncation's `h²` right arm, is the U.
+
+With common random numbers the two legs share their draws. The numerator then
+shrinks with `h` exactly as the signal does, and the quotient converges to the
+pathwise derivative as `h → 0`. Its variance is therefore **bounded**, and the
+left arm flattens onto the pathwise standard-error floor — measured at 2.944e-04,
+matching the pathwise estimator's own standard error. What remains is flat, then
+truncation: a hockey stick.
+
+**Why this matters rather than being a curiosity.** The U shape is a symptom of
+doing the bumping wrong. Quoting "we chose the bump at the minimum of the
+U-shaped error curve" as evidence of care would, in a correctly implemented
+bumper, describe a curve that does not exist. The honest statement is that with
+common random numbers the bump size barely matters until truncation bites, and
+the choice of 1% is about staying safely below that.
+
+**The honest limitation.** The flat region is flat only down to where floating-
+point cancellation would eventually bite. That floor was not reached on this
+grid — the smallest bump tested was 1e-4 relative, or 0.01 in spot — so the
+sweep establishes bounded variance over four decades of `h`, not over all `h`.

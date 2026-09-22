@@ -3,7 +3,7 @@
 Milestone checklist. The agent maintains this file; §7 of `CLAUDE.md` says each
 session starts by reading it and resuming from the first incomplete milestone.
 
-**Current position: M5 complete — headlines #1 and #2 exist. Next: M6 — Greeks, pathwise versus bump-and-revalue, headline #3.**
+**Current position: M6 complete — headlines #1, #2 and #3 exist. Next: M7 — discrete monitoring and the Brownian bridge, headline #4.**
 
 | # | Milestone | State | Headline |
 |---|---|---|---|
@@ -13,7 +13,7 @@ session starts by reading it and resuming from the first incomplete milestone.
 | M3 | Variance reduction study | **done** | **#1** |
 | M4 | Structured products | **done** | — |
 | M5 | MC vs closed form | **done** | **#2** |
-| M6 | Greeks: pathwise vs bump | not started | #3 |
+| M6 | Greeks: pathwise vs bump | **done** | **#3** |
 | M7 | Discrete monitoring / Brownian bridge | not started | #4 |
 | M8 | Market data and volume curve | not started | — |
 | M9 | Execution algorithms and shortfall | not started | #5, #6 |
@@ -417,6 +417,85 @@ re-checks that the two are bit-identical at the moment it makes the claim, and
 raises if they are not, rather than inheriting the result from M2.
 
 **Emits.** Headline #2 to `REPORT.md`.
+
+---
+
+## M6 — done → headline #3
+
+**Built.** `mc/greeks.py` — pathwise, likelihood ratio, and bump-and-revalue
+with common random numbers. Digital closed forms (`digital_price`,
+`digital_delta`, `digital_vega`) added to `analytics/blackscholes.py`, since
+validating a likelihood-ratio estimator needs a discontinuous payoff whose
+delta is known exactly. `bench/greeks.py`.
+
+**Route A is implemented: the likelihood ratio.** Pathwise is used for the
+vanilla and for any Lipschitz leg; the likelihood ratio wherever the payoff
+jumps — digitals and knock-out features. Pathwise is never applied across a
+discontinuity.
+
+**Acceptance — all three met.**
+
+| check | measured |
+|---|---|
+| pathwise vs bump on the vanilla | delta **5.29e-05** absolute; vega **6.34e-04** absolute, 1.62e-05 relative |
+| likelihood-ratio delta on a digital | 0.01954183 vs closed form 0.01955213, **−0.72 se** |
+| bump-size sweep shows a U | **only without common random numbers** — see below |
+
+Both estimators are scored against M1's exact delta and vega, not against each
+other: pathwise delta error 2.60e-05, bumped delta error 7.88e-05.
+
+**Units, stated because the tolerance is meaningless without them.** Delta is
+dimensionless and lives in [0,1]; vega is a price per 1.00 of volatility with a
+scale near 39 here. The same absolute number means very different things for
+the two, so the vega agreement is also given relative.
+
+**The validity condition, demonstrated rather than described.** For a digital,
+the naive pathwise estimator returns **exactly 0.0, with a standard error of
+exactly 0.0** — which makes it look *more* trustworthy, not less — against a
+closed-form delta of 0.01955213. It does not raise. `pathwise_digital_delta`
+exists in the module for no purpose except to make that failure reproducible.
+The likelihood ratio, on the same draws, returns 0.01954183.
+
+**The cost of the likelihood ratio is measured, not asserted.** On a payoff
+where pathwise is legal it needs **5.6× the paths** for the same accuracy. That
+is why it is used only where pathwise is invalid, rather than adopted
+everywhere for safety.
+
+**Headline #3 — compute ratio at matched standard error on the Greek: 0.204 for
+delta, 0.200 for vega.** At matched path count it is 0.200. The two coincide
+because with common random numbers bumping needs **0.98×** the paths of
+pathwise — essentially the same variance — so the ratio is set by the pricing-run
+count alone: five runs (base, spot up, spot down, vol up, vol down) against
+pathwise's single pass.
+
+**Against the author's earlier draft: one tenth expected, one fifth measured.**
+A tenth would require bumping to need extra paths on top of its extra pricing
+runs. With common random numbers it does not. The measured value stands (R2).
+
+**A finding that contradicts CLAUDE.md's stated expectation.** §4 M6 says the
+bump-size sweep "is U-shaped — noise amplification dominates at small bumps,
+truncation error at large ones". That is true **only without common random
+numbers**. Both sweeps were run:
+
+| | se amplification, smallest/largest bump | minimum |
+|---|---|---|
+| without CRN | **958.6×** | h = 0.03 |
+| with CRN | **1.1×** | h = 0.01 |
+
+Without CRN the numerator differences two independently noisy prices, so its
+standard error barely depends on `h` and dividing by `2h` amplifies it as `1/h`
+— the measured scaling is exactly `1/h` across the whole grid. That is the U.
+With CRN the two legs share their draws, the quotient converges to the pathwise
+derivative, and the variance stays **bounded** as `h → 0`, flattening onto the
+pathwise standard-error floor of 2.944e-04. The curve is then a hockey stick:
+flat, then truncation. Since correct practice requires common random numbers,
+the hockey stick is the shape this repository actually obtains.
+
+**Common random numbers, quantified.** Without them the standard error is
+**16.7× worse**, equal to **281× the paths** for the same accuracy — and the
+estimate stays *unbiased*, which is exactly why the mistake is easy to miss.
+
+**Emits.** Headline #3 to `REPORT.md`.
 
 ---
 
