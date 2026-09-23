@@ -37,6 +37,7 @@ SEEDS: Final[dict[str, int]] = {
     "variance_reduction": 31415926,
     "closed_form_agreement": 27182818,
     "greeks": 16180339,
+    "discrete_monitoring": 14142135,
 }
 
 
