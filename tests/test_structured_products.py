@@ -20,11 +20,7 @@ import pytest
 
 from quantdesk.config import AUTOCALLABLE_TERMS, BASE_MARKET, SNOWBALL_TERMS, Market
 from quantdesk.mc.paths import simulate
-from quantdesk.products.autocallable import (
-    AutocallableTerms,
-    autocallable_payoff,
-    observation_indices,
-)
+from quantdesk.products.autocallable import autocallable_payoff, observation_indices
 from quantdesk.products.snowball import (
     BRANCHES,
     SnowballTerms,

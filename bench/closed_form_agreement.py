@@ -302,7 +302,7 @@ def main() -> int:
         ),
     )
 
-    print(f"convention: basis points OF THE PREMIUM; standard error in the same units")
+    print("convention: basis points OF THE PREMIUM; standard error in the same units")
     print(f"engines bit-identical: {engines_identical}\n")
     print(f"{'case':<12}{'closed form':>13}{'MC':>13}{'diff bp':>10}{'se bp':>9}{'t':>8}{'p':>8}")
     for row in [headline, *supporting]:
@@ -312,7 +312,7 @@ def main() -> int:
             f"{row['difference_in_standard_errors']:>8.2f}{row['two_sided_p_value']:>8.3f}"
         )
 
-    print(f"\ndiscretisation sweep (ATM call; no discretisation error is possible here)")
+    print("\ndiscretisation sweep (ATM call; no discretisation error is possible here)")
     print(f"{'steps':>7}{'diff bp':>10}{'se bp':>9}{'t':>8}")
     for row in sweep:
         print(

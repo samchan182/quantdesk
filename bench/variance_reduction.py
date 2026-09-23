@@ -34,8 +34,6 @@ which is trap 16 in a different costume. `REPORT.md` carries both.
 
 from __future__ import annotations
 
-import numpy as np
-
 from quantdesk.analytics import blackscholes as bs
 from quantdesk.config import BASE_MARKET, seed_for
 from quantdesk.mc.paths import PairedRun, simulate_paired

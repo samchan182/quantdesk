@@ -51,7 +51,6 @@ from typing import Callable
 import numpy as np
 
 from quantdesk.config import Market
-from quantdesk.mc.estimators import Accumulator
 from quantdesk.mc.paths import terminal_prices
 
 __all__ = [

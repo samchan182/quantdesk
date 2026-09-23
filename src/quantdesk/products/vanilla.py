@@ -104,12 +104,17 @@ def on_terminal_column(
     return on_paths
 
 
-def linear_in_z_payoff(market, maturity: float) -> Callable[[np.ndarray], np.ndarray]:
+def linear_in_z_payoff(market) -> Callable[[np.ndarray], np.ndarray]:
     """``log(S_T / S_0)``, which is exactly linear in the normal draw ``Z``.
 
     Not a traded product. It exists to test the antithetic estimator, and it is
-    the sharpest available test of it. Since ``log(S_T/S_0) = mu*T +
-    sigma*sqrt(T)*Z`` is affine in ``Z``, the antithetic pair average is
+    the sharpest available test of it. Takes no maturity: the payoff is a pure
+    function of the terminal price, and the maturity is already baked into how
+    those terminal prices were generated. Accepting one here would suggest it
+    changed the answer, which it does not.
+
+    Since ``log(S_T/S_0) = mu*T + sigma*sqrt(T)*Z`` is affine in ``Z``, the
+    antithetic pair average is
 
         (f(Z) + f(-Z)) / 2 = mu * T
 

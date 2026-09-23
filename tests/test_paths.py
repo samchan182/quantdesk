@@ -250,7 +250,7 @@ def test_antithetic_on_a_linear_payoff_has_exactly_zero_variance():
     # is exactly zero, so "the mean equals mu*T" would collapse to "the mean is
     # zero" and the test would pass without pinning anything down.
     drifting = Market(spot=100.0, rate=0.05, div_yield=0.01, vol=0.20)
-    payoff = linear_in_z_payoff(drifting, MATURITY)
+    payoff = linear_in_z_payoff(drifting)
     acc = simulate(
         seed=7,
         market=drifting,

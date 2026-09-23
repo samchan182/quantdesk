@@ -32,7 +32,6 @@ from typing import Literal
 import numpy as np
 from scipy.special import ndtr
 
-from quantdesk.analytics.blackscholes import _norm_pdf  # noqa: F401  (kept for parity of imports)
 from quantdesk.analytics.blackscholes import call_price
 
 __all__ = [

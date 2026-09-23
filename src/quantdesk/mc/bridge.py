@@ -36,7 +36,7 @@ from typing import Literal
 
 import numpy as np
 
-__all__ = ["Direction", "crossing_probability", "bridge_survival"]
+__all__ = ["Direction", "crossing_probability", "bridge_survival", "observed_survival"]
 
 Direction = Literal["down", "up"]
 

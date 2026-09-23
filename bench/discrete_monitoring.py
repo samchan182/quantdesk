@@ -39,7 +39,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from quantdesk.analytics import blackscholes as bs
 from quantdesk.analytics.barrier import BETA_BGK, down_and_out_call, shifted_barrier
 from quantdesk.config import BASE_MARKET, SNOWBALL_TERMS, Market, seed_for
 from quantdesk.mc.bridge import bridge_survival, observed_survival
