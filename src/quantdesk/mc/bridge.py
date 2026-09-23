@@ -103,11 +103,21 @@ def bridge_survival(
     if paths.ndim != 2 or paths.shape[1] < 2:
         raise ValueError(f"expected paths of shape (n, steps+1), got {paths.shape}")
 
-    probability = crossing_probability(
-        paths[:, :-1], paths[:, 1:], barrier, vol, dt, direction=direction
-    )
-    uniforms = generator.random(probability.shape)
-    return ~np.any(uniforms < probability, axis=1)
+    # Stepwise, not all at once. The obvious implementation asks for a full
+    # (n_paths, n_steps) array of uniforms, which for 200,000 paths over 1,008
+    # steps is 1.6 GB — the same mistake M2 avoids for the paths themselves,
+    # repeated one module later. Only the surviving mask needs to persist
+    # across steps, so peak memory here is O(n_paths), not O(n_paths * n_steps).
+    n_paths, n_columns = paths.shape
+    survived = np.ones(n_paths, dtype=bool)
+
+    for step in range(n_columns - 1):
+        probability = crossing_probability(
+            paths[:, step], paths[:, step + 1], barrier, vol, dt, direction=direction
+        )
+        survived &= generator.random(n_paths) >= probability
+
+    return survived
 
 
 def observed_survival(

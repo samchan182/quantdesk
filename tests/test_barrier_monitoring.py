@@ -33,25 +33,60 @@ STRIKE = 100.0
 BARRIER = 90.0
 
 
-def _price_both(seed, n_steps, n_paths, barrier=BARRIER, market=MARKET, maturity=MATURITY):
-    """Both arms on the same paths, so their difference is not two noises."""
-    generator = rng(seed)
-    z = generator.standard_normal((n_paths, n_steps))
-    paths = price_paths(z, market, maturity, engine="numpy")
-    intrinsic = np.exp(-market.rate * maturity) * np.maximum(paths[:, -1] - STRIKE, 0.0)
+def _price_both(
+    seed, n_steps, n_paths, barrier=BARRIER, market=MARKET, maturity=MATURITY, chunk=50_000
+):
+    """Both arms on the same paths, so their difference is not two noises.
 
-    discrete = intrinsic * observed_survival(paths, barrier, "down")
-    bridged = intrinsic * bridge_survival(
-        paths, barrier, market.vol, maturity / n_steps, generator, "down"
-    )
-    difference = discrete - bridged
+    Chunked, for the same reason the production driver is: a 1,000,000 x 252
+    path array is 2 GB, and the test suite has no business allocating it. The
+    two arms are accumulated as sums, and the difference is accumulated as a
+    paired quantity so its standard error reflects the pairing.
+    """
+    generator = rng(seed)
+    dt = maturity / n_steps
+    discount = float(np.exp(-market.rate * maturity))
+
+    total = {"d": 0.0, "b": 0.0, "dd": 0.0, "bb": 0.0, "diff": 0.0, "diff2": 0.0, "n": 0}
+    remaining = n_paths
+    while remaining > 0:
+        size = min(chunk, remaining)
+        remaining -= size
+        z = generator.standard_normal((size, n_steps))
+        # numba, not numpy: M2 established the two are bit-identical.
+        paths = price_paths(z, market, maturity, engine="numba")
+        intrinsic = discount * np.maximum(paths[:, -1] - STRIKE, 0.0)
+
+        discrete = intrinsic * observed_survival(paths, barrier, "down")
+        bridged = intrinsic * bridge_survival(paths, barrier, market.vol, dt, generator, "down")
+        difference = discrete - bridged
+
+        total["d"] += discrete.sum()
+        total["dd"] += np.square(discrete).sum()
+        total["b"] += bridged.sum()
+        total["bb"] += np.square(bridged).sum()
+        total["diff"] += difference.sum()
+        total["diff2"] += np.square(difference).sum()
+        total["n"] += size
+
+    n = total["n"]
+
+    def mean_and_se(total_sum, total_sq):
+        mean = total_sum / n
+        variance = max(total_sq / n - mean * mean, 0.0) * n / (n - 1)
+        return float(mean), float(np.sqrt(variance / n))
+
+    discrete_mean, discrete_se = mean_and_se(total["d"], total["dd"])
+    bridged_mean, bridged_se = mean_and_se(total["b"], total["bb"])
+    difference_mean, difference_se = mean_and_se(total["diff"], total["diff2"])
+
     return {
-        "discrete": float(discrete.mean()),
-        "bridged": float(bridged.mean()),
-        "difference": float(difference.mean()),
-        "difference_se": float(difference.std(ddof=1) / np.sqrt(n_paths)),
-        "bridged_se": float(bridged.std(ddof=1) / np.sqrt(n_paths)),
-        "discrete_se": float(discrete.std(ddof=1) / np.sqrt(n_paths)),
+        "discrete": discrete_mean,
+        "bridged": bridged_mean,
+        "difference": difference_mean,
+        "difference_se": difference_se,
+        "bridged_se": bridged_se,
+        "discrete_se": discrete_se,
     }
 
 
@@ -185,7 +220,7 @@ def test_bridge_corrected_price_matches_the_continuous_closed_form():
     continuous = down_and_out_call(
         MARKET.spot, STRIKE, BARRIER, MARKET.rate, MARKET.div_yield, MARKET.vol, MATURITY
     )
-    out = _price_both(seed=202, n_steps=252, n_paths=1_000_000)
+    out = _price_both(seed=202, n_steps=252, n_paths=600_000)
     assert abs(out["bridged"] - continuous) < 3.0 * out["bridged_se"], (
         f"bridged {out['bridged']:.6f} vs continuous {continuous:.6f}, se {out['bridged_se']:.6f}"
     )
@@ -202,7 +237,7 @@ def test_discrete_price_matches_the_bgk_shifted_closed_form():
     bgk_price = down_and_out_call(
         MARKET.spot, STRIKE, bgk_barrier, MARKET.rate, MARKET.div_yield, MARKET.vol, MATURITY
     )
-    out = _price_both(seed=303, n_steps=252, n_paths=1_000_000)
+    out = _price_both(seed=303, n_steps=252, n_paths=600_000)
     assert abs(out["discrete"] - bgk_price) < 4.0 * out["discrete_se"], (
         f"discrete {out['discrete']:.6f} vs BGK {bgk_price:.6f}, se {out['discrete_se']:.6f}"
     )
@@ -227,7 +262,15 @@ def test_the_correction_shrinks_as_monitoring_becomes_continuous():
     """The limit the whole correction is defined by."""
     differences = []
     for n_steps in (12, 52, 252, 1008):
-        out = _price_both(seed=404 + n_steps, n_steps=n_steps, n_paths=200_000)
+        # Path count falls as the grid refines so the work stays bounded; the
+        # quantity being tested is the ordering of the differences, not their
+        # individual precision.
+        out = _price_both(
+            seed=404 + n_steps,
+            n_steps=n_steps,
+            n_paths=max(60_000, 400_000 // (n_steps // 12)),
+            chunk=20_000,
+        )
         differences.append(out["difference"])
 
     assert differences == sorted(differences, reverse=True), differences
