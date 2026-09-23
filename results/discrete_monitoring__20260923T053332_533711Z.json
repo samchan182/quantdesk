@@ -1,0 +1,228 @@
+{
+  "benchmark": "discrete_monitoring",
+  "environment": {
+    "cpu_model": "Apple M2",
+    "git_branch": "main",
+    "git_commit": "60cc232d715f70cf30853338a858d60d2871ca1f",
+    "git_dirty": false,
+    "machine": "arm64",
+    "packages": {
+      "numba": "0.61.0",
+      "numpy": "2.1.3",
+      "pandas": "2.2.3",
+      "scipy": "1.15.3"
+    },
+    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+    "python_implementation": "CPython",
+    "python_version": "3.13.5"
+  },
+  "inputs": {
+    "barrier": 90.0,
+    "barrier_pct_of_spot": 0.9,
+    "barrier_sweep": [
+      70.0,
+      80.0,
+      90.0,
+      95.0,
+      98.0
+    ],
+    "beta_bgk": 0.5825971579390106,
+    "chunk_paths": 50000,
+    "market": {
+      "div_yield": 0.0,
+      "rate": 0.02,
+      "spot": 100.0,
+      "vol": 0.2
+    },
+    "maturity": 1.0,
+    "n_paths": 2000000,
+    "n_steps": 252,
+    "product": "down-and-out call, barrier below spot, for the validated headline",
+    "snowball_terms": {
+      "coupon_rate": 0.15,
+      "downside_participation": 1.0,
+      "knock_in_frequency": "daily",
+      "knock_in_level": 0.75,
+      "knock_out_frequency": "monthly",
+      "knock_out_level": 1.0,
+      "steps_per_year": 252,
+      "strike_level": 1.0,
+      "tenor_years": 2.0
+    },
+    "step_sweep": [
+      12,
+      52,
+      252,
+      1008,
+      4032
+    ],
+    "strike": 100.0,
+    "vol_sweep": [
+      0.1,
+      0.2,
+      0.35,
+      0.5
+    ]
+  },
+  "notes": "Both arms share paths (common random numbers), so the difference is a paired quantity and its standard error is far smaller than either arm's. The contract price and the continuous-monitoring sensitivity are reported separately and must not be combined.",
+  "schema_version": 1,
+  "seed": 14142135,
+  "timestamp_utc": "2026-09-23T05:33:32.533711+00:00",
+  "values": {
+    "headline": {
+      "bridge_corrected_price": 7.2822243657368535,
+      "difference": 0.22140058145636857,
+      "difference_bp_of_premium": 295.0581659057798,
+      "difference_in_standard_errors": 137.29637159780796,
+      "difference_se": 0.0016125741625928254,
+      "difference_se_bp_of_premium": 2.1490601861651135,
+      "discrete_price": 7.503624947193221,
+      "n_paths": 2000000,
+      "sign_check_correction_lowers_price": true,
+      "units": "basis points of the discretely-monitored premium"
+    },
+    "judgement": "The contract monitors its barrier on daily closing prices and the simulation steps daily, so the two grids coincide, the simulation is EXACT, and the Brownian bridge correction MUST NOT be applied to the contract as written. The headline below is a sensitivity - what the correction would move the price by under continuous monitoring - and not a correction to the reported price.",
+    "sensitivity": {
+      "by_barrier_level": [
+        {
+          "barrier": 70.0,
+          "barrier_pct_of_spot": 0.7,
+          "difference_bp_of_premium": 0.21178773729316538,
+          "difference_se_bp": 0.057363191769474076,
+          "discrete_price": 8.949636033958187
+        },
+        {
+          "barrier": 80.0,
+          "barrier_pct_of_spot": 0.8,
+          "difference_bp_of_premium": 21.804664143404477,
+          "difference_se_bp": 0.9020580371171057,
+          "discrete_price": 8.843105443877509
+        },
+        {
+          "barrier": 90.0,
+          "barrier_pct_of_spot": 0.9,
+          "difference_bp_of_premium": 280.7959045372373,
+          "difference_se_bp": 4.147297711300246,
+          "discrete_price": 7.513708280738779
+        },
+        {
+          "barrier": 95.0,
+          "barrier_pct_of_spot": 0.95,
+          "difference_bp_of_premium": 904.8567655652952,
+          "difference_se_bp": 10.233706743405483,
+          "discrete_price": 5.140347155822987
+        },
+        {
+          "barrier": 98.0,
+          "barrier_pct_of_spot": 0.98,
+          "difference_bp_of_premium": 2381.174132561928,
+          "difference_se_bp": 24.02594543111779,
+          "discrete_price": 2.805537959769826
+        }
+      ],
+      "by_volatility": [
+        {
+          "difference_bp_of_premium": 26.48852840246007,
+          "difference_se_bp": 0.9207629199624385,
+          "discrete_price": 4.9723427212295155,
+          "vol": 0.1
+        },
+        {
+          "difference_bp_of_premium": 294.4610925795782,
+          "difference_se_bp": 4.320450724528863,
+          "discrete_price": 7.522930542710991,
+          "vol": 0.2
+        },
+        {
+          "difference_bp_of_premium": 755.3185449653696,
+          "difference_se_bp": 9.573457810996183,
+          "discrete_price": 9.251895005620321,
+          "vol": 0.35
+        },
+        {
+          "difference_bp_of_premium": 1173.56472534859,
+          "difference_se_bp": 15.26168355662151,
+          "discrete_price": 10.457740894643663,
+          "vol": 0.5
+        }
+      ]
+    },
+    "snowball": {
+      "difference": 0.0007052194364009119,
+      "difference_bp_of_premium": 7.04655092872026,
+      "difference_se": 2.7582182159851078e-05,
+      "difference_se_bp_of_premium": 0.2756010984418447,
+      "interpretation": "the first figure IS the price of the contract the author specified; the second prices a different contract, one monitored continuously. The difference is the value of the monitoring convention, not a correction to be applied.",
+      "n_paths": 400000,
+      "price_as_written_daily_close_monitoring": 1.0008008790890672,
+      "price_as_written_se": 0.0001918038854984587,
+      "price_if_continuously_monitored": 1.000095659652667
+    },
+    "step_convergence": [
+      {
+        "bridge_corrected_price": 7.306903040434407,
+        "difference": 0.8123072027874273,
+        "difference_bp_of_premium": 1000.475635503547,
+        "difference_se": 0.0029742391237339537,
+        "discrete_price": 8.119210243221834,
+        "n_paths": 2000000,
+        "n_steps": 12,
+        "observations_per_year": 12
+      },
+      {
+        "bridge_corrected_price": 7.301323205667497,
+        "difference": 0.45074838310219095,
+        "difference_bp_of_premium": 581.4553928464534,
+        "difference_se": 0.0022642288455920587,
+        "discrete_price": 7.752071588769688,
+        "n_paths": 2000000,
+        "n_steps": 52,
+        "observations_per_year": 52
+      },
+      {
+        "bridge_corrected_price": 7.315039093259681,
+        "difference": 0.21683661336600427,
+        "difference_bp_of_premium": 287.8919167177124,
+        "difference_se": 0.0017946930678213542,
+        "discrete_price": 7.531875706625684,
+        "n_paths": 1587301,
+        "n_steps": 252,
+        "observations_per_year": 252
+      },
+      {
+        "bridge_corrected_price": 7.305012244233837,
+        "difference": 0.11399007709776919,
+        "difference_bp_of_premium": 153.646099786244,
+        "difference_se": 0.0025909730117061698,
+        "discrete_price": 7.419002321331606,
+        "n_paths": 396825,
+        "n_steps": 1008,
+        "observations_per_year": 1008
+      },
+      {
+        "bridge_corrected_price": 7.291677765393353,
+        "difference": 0.059568424240491955,
+        "difference_bp_of_premium": 81.03173625784797,
+        "difference_se": 0.0038551347385983805,
+        "discrete_price": 7.351246189633844,
+        "n_paths": 100000,
+        "n_steps": 4032,
+        "observations_per_year": 4032
+      }
+    ],
+    "validation": {
+      "beta_bgk": 0.5825971579390106,
+      "bgk_closed_form_price": 7.5208618744980225,
+      "bgk_shifted_barrier": 89.34181542038273,
+      "bridge_vs_continuous": -0.0037157814264858757,
+      "bridge_vs_continuous_in_se": -0.38813519597526724,
+      "continuous_closed_form": 7.300447265380429,
+      "discrete_vs_bgk": -0.003929771722609665,
+      "discrete_vs_bgk_in_se": -0.40830793562384876,
+      "mc_bridged": 7.296731483953943,
+      "mc_bridged_se": 0.009573420460232246,
+      "mc_discrete": 7.516932102775413,
+      "mc_discrete_se": 0.009624529380271325
+    }
+  }
+}

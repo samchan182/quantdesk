@@ -6,7 +6,7 @@ Every number below is read from a committed result JSON in `results/`, alongside
 
 `DEFENSE.md` carries one entry per number: what it means, the mechanism, what it is sensitive to, what would make it wrong, and the honest limitation.
 
-Headline numbers available: **3 of 3**.
+Headline numbers available: **4 of 4**.
 
 ---
 
@@ -178,3 +178,63 @@ python bench/greeks.py
 - **Run at**: 2026-09-22T04:44:57.942505+00:00
 
 > Compute ratio is reported at matched standard error on the Greek, and also at matched path count, with both labelled. Cost is counted in pricing runs, which is deterministic; wall-clock is recorded but flagged.
+
+---
+
+## Headline #4 — Discrete monitoring: the cost of a monitoring convention
+
+**The judgement comes before the number.** The contract monitors its barrier on daily closing prices, and the simulation steps daily. The two grids coincide, so the simulation of that barrier is **exact** and the Brownian bridge correction **must not be applied** to the contract as written — doing so would price a continuously-monitored contract nobody wrote.
+
+The number below is therefore a **sensitivity, not a correction**: it is what the price would move by if the contract were continuously monitored. The snowball's own price, on its own daily grid, is reported separately and the two must not be combined.
+
+Validated on a down-and-out call, which has a continuous closed form, by two independent routes — the Brownian bridge, which simulates the missed excursions, and the Broadie-Glasserman-Kou barrier shift, which moves the barrier to account for them. They approach the answer from opposite directions, so their agreement is evidence rather than restatement.
+
+### Result
+
+| quantity | value |
+|---|---|
+| Monitoring convention worth (down-and-out call) | `+295.06 bp of premium` |
+| Standard error | `2.15 bp of premium` |
+| Sign: correcting lowers the knock-out price<br><sub>discrete monitoring misses excursions, so it keeps too many paths alive</sub> | `True` |
+| Price, daily monitoring (the contract) | `7.503625` |
+| Price, continuously monitored (a different contract) | `7.282224` |
+| Validation — continuous closed form | `7.300447` |
+| Validation — Monte Carlo with the bridge | `7.296731` |
+| Bridge vs closed form, in standard errors | `-0.39` |
+| Validation — BGK shifted barrier | `89.3418` |
+| Validation — BGK closed-form price | `7.520862` |
+| Discrete vs BGK, in standard errors<br><sub>the independent cross-check</sub> | `-0.41` |
+| BGK constant beta | `0.5825971579` |
+| Snowball price as written (daily closes)<br><sub>this IS the price — no correction applied</sub> | `1.000801` |
+| Snowball if continuously monitored<br><sub>a different contract, reported as a labelled sensitivity</sub> | `1.000096` |
+| Snowball monitoring convention worth | `+7.05 bp of premium` |
+
+### Inputs
+
+| input | value |
+|---|---|
+| Product | `down-and-out call, barrier below spot, for the validated headline` |
+| Barrier | `90` |
+| Barrier as % of spot | `90%` |
+| Time steps | `252` |
+| Paths | `2,000,000` |
+| Step sweep | `[12, 52, 252, 1008, 4032]` |
+| Volatility sweep | `[0.1, 0.2, 0.35, 0.5]` |
+| Barrier sweep | `[70.0, 80.0, 90.0, 95.0, 98.0]` |
+| Market | `div_yield=0.0, rate=0.02, spot=100.0, vol=0.2` |
+
+### Reproducing it
+
+```bash
+python bench/discrete_monitoring.py
+```
+
+- **Seed**: `14142135` (registered in `config.SEEDS`)
+- **Commit**: `60cc232d715f70cf30853338a858d60d2871ca1f` (branch `main`)
+- **Python**: 3.13.5 (CPython)
+- **Libraries**: numba 0.61.0, numpy 2.1.3, pandas 2.2.3, scipy 1.15.3
+- **Machine**: Apple M2, arm64, macOS-26.5-arm64-arm-64bit-Mach-O
+- **Result JSON**: [`results/discrete_monitoring__20260923T053332_533711Z.json`](results/discrete_monitoring__20260923T053332_533711Z.json)
+- **Run at**: 2026-09-23T05:33:32.533711+00:00
+
+> Both arms share paths (common random numbers), so the difference is a paired quantity and its standard error is far smaller than either arm's. The contract price and the continuous-monitoring sensitivity are reported separately and must not be combined.

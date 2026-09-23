@@ -182,6 +182,59 @@ HEADLINES: list[Headline] = [
             Row("Sweep bumps", "sweep_bumps", "{}"),
         ],
     ),
+    Headline(
+        number=4,
+        title="Discrete monitoring: the cost of a monitoring convention",
+        benchmark="discrete_monitoring",
+        command="python bench/discrete_monitoring.py",
+        summary=(
+            "**The judgement comes before the number.** The contract monitors its barrier "
+            "on daily closing prices, and the simulation steps daily. The two grids "
+            "coincide, so the simulation of that barrier is **exact** and the Brownian "
+            "bridge correction **must not be applied** to the contract as written — doing "
+            "so would price a continuously-monitored contract nobody wrote.\n\n"
+            "The number below is therefore a **sensitivity, not a correction**: it is what "
+            "the price would move by if the contract were continuously monitored. The "
+            "snowball's own price, on its own daily grid, is reported separately and the "
+            "two must not be combined.\n\n"
+            "Validated on a down-and-out call, which has a continuous closed form, by two "
+            "independent routes — the Brownian bridge, which simulates the missed "
+            "excursions, and the Broadie-Glasserman-Kou barrier shift, which moves the "
+            "barrier to account for them. They approach the answer from opposite "
+            "directions, so their agreement is evidence rather than restatement."
+        ),
+        rows=[
+            Row("Monitoring convention worth (down-and-out call)", "headline.difference_bp_of_premium", "{:+.2f} bp of premium"),
+            Row("Standard error", "headline.difference_se_bp_of_premium", "{:.2f} bp of premium"),
+            Row("Sign: correcting lowers the knock-out price", "headline.sign_check_correction_lowers_price", "{}",
+                "discrete monitoring misses excursions, so it keeps too many paths alive"),
+            Row("Price, daily monitoring (the contract)", "headline.discrete_price", "{:.6f}"),
+            Row("Price, continuously monitored (a different contract)", "headline.bridge_corrected_price", "{:.6f}"),
+            Row("Validation — continuous closed form", "validation.continuous_closed_form", "{:.6f}"),
+            Row("Validation — Monte Carlo with the bridge", "validation.mc_bridged", "{:.6f}"),
+            Row("Bridge vs closed form, in standard errors", "validation.bridge_vs_continuous_in_se", "{:+.2f}"),
+            Row("Validation — BGK shifted barrier", "validation.bgk_shifted_barrier", "{:.4f}"),
+            Row("Validation — BGK closed-form price", "validation.bgk_closed_form_price", "{:.6f}"),
+            Row("Discrete vs BGK, in standard errors", "validation.discrete_vs_bgk_in_se", "{:+.2f}",
+                "the independent cross-check"),
+            Row("BGK constant beta", "validation.beta_bgk", "{:.10f}"),
+            Row("Snowball price as written (daily closes)", "snowball.price_as_written_daily_close_monitoring", "{:.6f}",
+                "this IS the price — no correction applied"),
+            Row("Snowball if continuously monitored", "snowball.price_if_continuously_monitored", "{:.6f}",
+                "a different contract, reported as a labelled sensitivity"),
+            Row("Snowball monitoring convention worth", "snowball.difference_bp_of_premium", "{:+.2f} bp of premium"),
+        ],
+        input_rows=[
+            Row("Product", "product", "{}"),
+            Row("Barrier", "barrier", "{:g}"),
+            Row("Barrier as % of spot", "barrier_pct_of_spot", "{:.0%}"),
+            Row("Time steps", "n_steps", "{:,}"),
+            Row("Paths", "n_paths", "{:,}"),
+            Row("Step sweep", "step_sweep", "{}"),
+            Row("Volatility sweep", "vol_sweep", "{}"),
+            Row("Barrier sweep", "barrier_sweep", "{}"),
+        ],
+    ),
 ]
 
 

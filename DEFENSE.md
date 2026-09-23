@@ -647,3 +647,106 @@ the choice of 1% is about staying safely below that.
 point cancellation would eventually bite. That floor was not reached on this
 grid — the smallest bump tested was 1e-4 relative, or 0.01 in spot — so the
 sweep establishes bounded variance over four decades of `h`, not over all `h`.
+
+---
+
+## H4 — The monitoring convention is worth 295bp of premium, and the correction is not applied
+
+**What the number means, and in what units of what base.** On a down-and-out
+call with the barrier at 90% of spot, 20% volatility, one year, monitored
+daily, moving from daily-close monitoring to continuous monitoring changes the
+price by **295.06 basis points of the premium** (se 2.15 bp). The base is the
+discretely-monitored premium, 7.503625. It is **not** a correction applied to
+the reported price. It is the value of a contract term.
+
+**The judgement this rests on, which matters more than the number.** The
+contract monitors on daily closes. The simulation steps daily. The two grids
+coincide, so the simulation is *exact* — there is no discretisation error to
+correct, and applying the Brownian bridge here would be pricing a different,
+continuously-monitored contract. Trap 8 is doing exactly that. Knowing when not
+to apply a correction is the harder half of knowing the correction.
+
+**The mechanism, and the direction.** Between two observed closes the price
+moves continuously; it can dip below the barrier and recover unseen. Discrete
+monitoring therefore *understates* the crossing probability, leaves too many
+paths alive, and **overprices a knock-out**. Correcting lowers the price — which
+is what was measured, 7.503625 → 7.282224.
+
+**Where the formula comes from, and why it is a product of two logarithms.**
+Conditional on its endpoints a Brownian motion over one step is a Brownian
+bridge, and the probability a bridge from `a` to `b` touches zero is
+`exp(−2ab/variance)`. In logs the endpoint distances from the barrier are
+`ln(S_t/B)` and `ln(S_{t+Δ}/B)` and the variance is `σ²Δ`. The product of the
+two logarithms is the product of the two endpoint distances: the excursion has
+to reach the barrier *and* come back, so the probability falls off with the
+distance at each end.
+
+**What it is most sensitive to: the barrier's distance from spot, overwhelmingly.**
+
+| barrier | 70% | 80% | 90% | 95% | 98% |
+|---|---|---|---|---|---|
+| effect | 0.21 bp | 21.80 bp | 280.80 bp | 904.86 bp | 2381.17 bp |
+
+and secondarily to volatility, 26.5 bp at σ=10% rising to 1173.6 bp at σ=50%.
+Both directions are what the mechanism requires: a closer barrier and a wilder
+process both mean more unobserved excursions.
+
+**What would make it wrong, and how you would know.**
+
+- *The sign.* Trap 9. Checked directly, and also structurally: the bridge can
+  only ever *remove* survivors, never resurrect them, which a test asserts.
+- *The BGK shift direction.* The effective barrier moves **away** from spot,
+  because a discretely monitored barrier behaves as though it sat further off.
+  Reversing it gives a correction of the right size and the wrong sign.
+- *The bridge being wrong altogether.* Cross-checked two ways against an exact
+  answer: the bridge reproduces the continuous closed form to **−0.39 se**, and
+  the uncorrected discrete price matches the BGK-shifted closed form to
+  **−0.41 se**. These are independent routes; agreeing by accident is
+  implausible.
+- *The limit.* As the grid refines the correction must vanish. It does, and at
+  the right **rate** — proportional to √Δt, halving per fourfold refinement:
+  1000, 581, 288, 154, 81 bp. A gap that shrank at the wrong rate would mean
+  the right sign for the wrong reason.
+
+**Against the author's earlier draft.** The draft expected roughly 31bp;
+295.06bp was measured, nearly ten times larger. Nothing was tuned. The
+sensitivity sweep accounts for the difference entirely — 31bp corresponds to a
+barrier near 80% of spot, not the 90% that was run — and because the sweep
+exists, the answer is available for whichever barrier the contract actually
+specifies rather than only for the one measured.
+
+**The honest limitations.**
+
+1. *The bridge is exact only for the one-step conditional law.* It assumes GBM
+   between observations with the same constant volatility used to simulate
+   them. Under a real volatility surface the crossing probability would differ.
+2. *It adds Monte Carlo noise of its own*, since it draws a uniform per path
+   per step. Two bridge-corrected runs on different seeds differ; the
+   uncorrected daily price does not, because it is a deterministic function of
+   the simulated closes.
+3. *Daily closes are not the only discrete convention.* A contract monitoring
+   intraday lows rather than closes would need a different treatment again, and
+   none is implemented.
+
+---
+
+## H4b — Why the snowball's number is small, and why that is the right answer
+
+**The figure.** The snowball's knock-in sits at 75% of spot and is observed on
+daily closes. Its price is **1.000801** (se 0.000192). Monitored continuously,
+the same note would be worth 1.000096 — the monitoring convention is worth
+**7.05 bp of premium**.
+
+**Why so much smaller than the 295bp headline.** Because 75% is far from spot.
+The barrier sweep above shows the effect collapsing as the barrier retreats —
+0.21 bp at 70%, 21.8 bp at 80% — and 7 bp at 75% sits exactly where that curve
+says it should. The two numbers are consistent, not in tension, and the sweep is
+what makes that visible rather than something to be asserted.
+
+**The point worth making in an interview.** A correction can be technically
+correct, correctly signed, correctly validated — and still be irrelevant to the
+contract in front of you. Here it is worth 7 basis points on a note trading at
+par, against a coupon of 15% a year, and the contract does not call for it
+anyway. Reporting it as a labelled sensitivity rather than folding it into the
+price is the difference between understanding the correction and merely having
+implemented it.

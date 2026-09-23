@@ -3,7 +3,7 @@
 Milestone checklist. The agent maintains this file; §7 of `CLAUDE.md` says each
 session starts by reading it and resuming from the first incomplete milestone.
 
-**Current position: M6 complete — headlines #1, #2 and #3 exist. Next: M7 — discrete monitoring and the Brownian bridge, headline #4.**
+**Current position: M7 complete — headlines #1 to #4 exist. Next: M8 — market data and the intraday volume curve, which is blocked on the author (see Open questions).**
 
 | # | Milestone | State | Headline |
 |---|---|---|---|
@@ -14,7 +14,7 @@ session starts by reading it and resuming from the first incomplete milestone.
 | M4 | Structured products | **done** | — |
 | M5 | MC vs closed form | **done** | **#2** |
 | M6 | Greeks: pathwise vs bump | **done** | **#3** |
-| M7 | Discrete monitoring / Brownian bridge | not started | #4 |
+| M7 | Discrete monitoring / Brownian bridge | **done** | **#4** |
 | M8 | Market data and volume curve | not started | — |
 | M9 | Execution algorithms and shortfall | not started | #5, #6 |
 | M10 | Pre-trade risk and latency | not started | #7 |
@@ -496,6 +496,78 @@ the hockey stick is the shape this repository actually obtains.
 estimate stays *unbiased*, which is exactly why the mistake is easy to miss.
 
 **Emits.** Headline #3 to `REPORT.md`.
+
+---
+
+## M7 — done → headline #4
+
+**Built.** `analytics/barrier.py` — continuous down-and-out and down-and-in
+closed forms (both barrier regimes, `H ≤ K` and `H > K`), and the
+Broadie–Glasserman–Kou shift with β = 0.5825971579. `mc/bridge.py` — crossing
+probability and survival. `bench/discrete_monitoring.py`.
+
+**The judgement, which decides what this milestone is.** The author was asked
+and answered: the contract monitors on **daily closing prices**, with the
+correction's effect reported separately. The simulation steps daily. The two
+grids coincide, so the simulation of that barrier is **exact** and the Brownian
+bridge correction **must not be applied** to the contract as written. Applying
+it would price a continuously-monitored contract nobody wrote, and would do so
+in the direction of a lower price — trap 8, and a mistake that looks like
+sophistication.
+
+So the benchmark reports two things and never mixes them: the **contract
+price**, on the grid the contract specifies, uncorrected; and a **labelled
+sensitivity**, what the correction would move the price by if the contract were
+continuous.
+
+**Acceptance — all three met.**
+
+| check | measured |
+|---|---|
+| bridge and BGK agree | bridge vs continuous closed form **−0.39 se**; discrete vs BGK-shifted closed form **−0.41 se** |
+| sign is right | correcting **lowers** the knock-out price, 7.503625 → 7.282224 |
+| converges as the grid refines | 1000.48 → 581.46 → 287.89 → 153.65 → 81.03 bp at 12 → 4032 steps |
+
+The two validation routes come at the answer from opposite directions — the
+bridge simulates the missed excursions, BGK moves the barrier to account for
+them — so their agreement is evidence rather than restatement.
+
+**The convergence is not merely monotone; it scales as √Δt**, exactly as the
+BGK shift predicts. Each fourfold refinement roughly halves the gap:
+1000 → 581 → 288 → 154 → 81. That is the mechanism confirming itself, not a
+curve fitted to output.
+
+**Headline #4: the monitoring convention is worth +295.06 bp of premium**
+(se 2.15 bp) on a down-and-out call with the barrier at 90% of spot, 20% vol,
+daily monitoring.
+
+**Against the author's earlier draft: 31bp expected, 295bp measured — nearly
+ten times larger.** Nothing was tuned (R2). The sensitivity sweep explains the
+gap completely: the bias is enormously sensitive to how close the barrier sits,
+running from **0.21 bp at 70% of spot to 2381 bp at 98%**. A 31bp figure
+corresponds to a barrier around 80% of spot, not 90%. Which barrier the author
+had in mind is a contract question, and the sweep means the answer is available
+for any of them rather than only for the one that was run.
+
+**Sensitivity behaves as the mechanism requires.** Growing in volatility
+(26.5 bp at σ=10% to 1173.6 bp at σ=50%) and growing as the barrier approaches
+spot (0.21 bp at 70% to 2381 bp at 98%) — and shrinking toward zero as
+monitoring becomes continuous, which is the limit shown above.
+
+**The snowball, kept strictly separate.** Its knock-in sits at 75% of spot and
+is observed on daily closes, so its price **is** 1.000801 (se 0.000192), with no
+correction. If the same barrier were monitored continuously the note would be
+worth 1.000096 — the monitoring convention is worth **7.05 bp**. Small, and for
+a reason the sweep already gave: 75% is far from spot, which is exactly the
+regime where the correction barely matters.
+
+**An engineering note.** `bridge_survival` walks the steps rather than
+allocating a full `(n_paths, n_steps)` array of uniforms — 1.6 GB at 200,000
+paths over 1,008 steps, the same mistake M2 avoids for the paths themselves,
+repeated one module later. Peak memory is now O(n_paths). The test helper is
+chunked for the same reason.
+
+**Emits.** Headline #4 to `REPORT.md`.
 
 ---
 
